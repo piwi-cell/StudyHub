@@ -28,7 +28,7 @@ Die ursprüngliche Roadmap (Windows, `src/`-Struktur, MCP) steht in `ISSUES.md` 
 
 ## Code-Regeln
 
-- Python 3.13, Abhängigkeiten nur über `pyproject.toml` und `uv.lock` (`uv add …`).
+- Python 3.13 oder 3.14 (Installation und CI: 3.14; `requires-python` begrenzt nach oben), Abhängigkeiten nur über `pyproject.toml` und `uv.lock` (`uv add …`).
 - **Keine neuen Abhängigkeiten ohne Rückfrage.**
 - Secrets (Uni-Passwort, API-Keys, Bot-Token) nur über `keyring`. Nie in Dateien, Logs,
   API-Antworten oder Commits.

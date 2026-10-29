@@ -192,7 +192,7 @@ def report_news(copied: list[tuple[str, bool]], first_run: bool, imported: list[
     if not copied:
         return
     if first_run:
-        notify("ILIAS-Sync: alle Dateien geladen", f"{len(copied)} Dateien aus deinen Kursen im Zielordner.", icon="✅")
+        notify("StudyHub: alle Dateien geladen", f"{len(copied)} Dateien aus deinen Kursen im Zielordner.", icon="✅")
         return
     lines, course = [], None
     for path, updated in sorted(copied):
@@ -233,7 +233,7 @@ def run(scheduled: bool = False) -> None:
         _run(config, state)
     except Exception as error:  # nichts darf den Hintergrund-Job stumm abbrechen lassen
         log("Unerwarteter Fehler:\n" + traceback.format_exc())
-        notify_once_a_day("absturz", "ILIAS-Sync: unerwarteter Fehler", f"{type(error).__name__}: {error}")
+        notify_once_a_day("absturz", "StudyHub: unerwarteter Fehler", f"{type(error).__name__}: {error}")
     finally:
         core.save_state(state)
         PROGRESS_FILE.unlink(missing_ok=True)

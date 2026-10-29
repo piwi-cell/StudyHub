@@ -44,8 +44,7 @@ const zustand = {
   tutor: { phase: "start", schritt: -1, ton: true, lauf: 0 },
 
   // Skills
-  skills: { fima: [] }, // hinzugefügte Skills pro Modul
-  skillErstellt: null, // Skill, der gerade „erstellt“ wird
+  skills: { fima: [] }, // hinzugefügte Skills pro Modul (echte Kurse: vom Server, live.js)
   vorschauOhneZusammenfassung: false,
 };
 
@@ -102,6 +101,11 @@ function findeModul(id) {
 // Das Original-Objekt in DATEN (zum Ändern, z. B. Fortschritt)
 function modulDaten(id) {
   return DATEN.semester.flatMap((s) => s.module).find((m) => m.id === id);
+}
+
+// „1 Datei“, „3 Dateien“
+function anzahl(n, eins, mehr) {
+  return `${n} ${n === 1 ? eins : mehr}`;
 }
 
 function begruessung() {
@@ -364,7 +368,7 @@ function seiteStart() {
 
     <section class="heute glas" aria-labelledby="heute-titel">
       <h2 id="heute-titel" class="mini-titel">Heute dran</h2>
-      <div class="heute-liste">${heuteChips}</div>
+      <div class="heute-liste">${heuteChips || '<p class="klein">Gerade ist nichts fällig. Neue Dateien und fällige Karteikarten erscheinen hier.</p>'}</div>
       ${weiterModul ? `<a class="pille" href="#/modul/${weiterModul.id}/${weiterTab}">Weiterlernen ${icon("pfeil", 18)}</a>` : ""}
     </section>
 
@@ -422,7 +426,7 @@ function seiteModul(modulId, tabId) {
   const klausur = d?.live ? LIVE.klausurBadge(m)
     : DATEN.naechsteKlausur?.modulId === m.id
       ? `<span class="badge">${icon("kalender", 14)} Klausur in ${DATEN.naechsteKlausur.tage} Tagen</span>` : "";
-  const neu = m.neu ? `<span class="badge badge-neu">${m.neu} neue Dateien</span>` : "";
+  const neu = m.neu ? `<span class="badge badge-neu">${anzahl(m.neu, "neue Datei", "neue Dateien")}</span>` : "";
   const herkunft = d?.live ? `<span class="badge badge-neu">● Live aus ILIAS</span>`
     : m.beispiel && LIVE.aktiv ? `<span class="badge">Beispieldaten</span>` : "";
 
@@ -600,7 +604,7 @@ function widgetDokumente(m, d) {
   return `
     <article class="widget glas">
       ${widgetKopf("Dokumente", "dokument", m.id, "dokumente")}
-      <p class="klein">${alleDateien(d).length} Dateien aus ILIAS · sortiert nach Vorlesung, Tutorium, Übung</p>
+      <p class="klein">${anzahl(alleDateien(d).length, "Datei", "Dateien")} aus ILIAS · sortiert nach Vorlesung, Tutorium, Übung</p>
       <ul class="liste-zeilen">${zeilen}</ul>
     </article>`;
 }
@@ -633,7 +637,7 @@ function tabDokumente(m, d) {
         <section class="dok-gruppe" aria-labelledby="grp-${g.gruppe}">
           <div class="abschnitt-kopf">
             <h2 id="grp-${g.gruppe}">${g.gruppe}</h2>
-            <span class="klein">${g.dateien.length} Dateien</span>
+            <span class="klein">${anzahl(g.dateien.length, "Datei", "Dateien")}</span>
           </div>
           <ul class="glas liste-karte">${zeilen}</ul>
         </section>`;
@@ -644,7 +648,7 @@ function tabDokumente(m, d) {
     <div class="tab-inhalt">
       <div class="info-leiste mit-aura">
         <div class="aura aura-klein" aria-hidden="true"></div>
-        <p><b>${dateien.length} Dateien</b> aus ILIAS · ${neu} neu${d.live ? " · Klick öffnet die Datei" : ""}</p>
+        <p><b>${anzahl(dateien.length, "Datei", "Dateien")}</b> aus ILIAS · ${neu} neu${d.live ? " · Klick öffnet die Datei" : ""}</p>
         <p class="klein">Automatisch sortiert nach Vorlesung, Tutorium und Übung</p>
         ${d.live ? `<div class="hochladen-zeile">
           <button class="knopf-hell" data-aktion="live-hochladen" data-modul="${m.id}">${icon("plus", 18)} Eigene Dateien hinzufügen</button>
@@ -765,7 +769,7 @@ function tabDokumenteLernplan(m, d) {
             <span class="status status-offen">${stand.offen} offen</span>
             <span class="status status-nochmal">${stand.nochmal} nochmal üben</span>
           </div>
-          <p class="klein">${dateien.length} Dateien aus ILIAS · ${neu} neu · sortiert nach Vorlesung, Tutorium und Übung</p>
+          <p class="klein">${anzahl(dateien.length, "Datei", "Dateien")} aus ILIAS · ${neu} neu · sortiert nach Vorlesung, Tutorium und Übung</p>
         </div>
       </section>
 
@@ -1264,17 +1268,16 @@ function tutorZuruecksetzen() {
 function tabSkillHinzufuegen(m, d) {
   const hatZusammenfassung = d.zusammenfassungFertig && !zustand.vorschauOhneZusammenfassung;
   const hinzugefuegt = zustand.skills[m.id] || [];
+  // Die Probeklausur gibt es bisher nur mit Beispieldaten
+  const katalog = SKILL_KATALOG.filter((s) => !(d.live && s.id === "probeklausur"));
 
-  const kacheln = SKILL_KATALOG.map((s) => {
+  const kacheln = katalog.map((s) => {
     const gesperrt = s.brauchtZusammenfassung && !hatZusammenfassung;
     const istDa = hinzugefuegt.includes(s.id);
-    const laeuft = zustand.skillErstellt === s.id;
 
     let fuss;
     if (gesperrt) {
       fuss = `<span class="skill-sperre">${icon("schloss", 14)} Erst Zusammenfassung erstellen</span>`;
-    } else if (laeuft) {
-      fuss = `<div class="skill-laden"><span class="klein">Wird erstellt …</span><div class="balken"><span class="balken-laeuft"></span></div></div>`;
     } else if (istDa) {
       fuss = `<a class="knopf-hell" href="#/modul/${m.id}/skill-${s.id}">${icon("haken", 16)} Öffnen</a>`;
     } else {
@@ -1298,9 +1301,9 @@ function tabSkillHinzufuegen(m, d) {
           <h2>Skill hinzufügen</h2>
           <p class="klein">Skills bauen auf deinen Unterlagen auf und erscheinen danach als eigener Tab.</p>
         </div>
-        <button class="knopf-hell" data-aktion="vorschau-umschalten" data-fokus="vorschau" aria-pressed="${zustand.vorschauOhneZusammenfassung}">
+        ${d.live ? "" : `<button class="knopf-hell" data-aktion="vorschau-umschalten" data-fokus="vorschau" aria-pressed="${zustand.vorschauOhneZusammenfassung}">
           ${zustand.vorschauOhneZusammenfassung ? "Mit Zusammenfassung ansehen" : "Ansicht ohne Zusammenfassung"}
-        </button>
+        </button>`}
       </div>
       <div class="skill-raster mit-aura">
         <div class="aura" aria-hidden="true"></div>
@@ -1359,7 +1362,7 @@ function tabSkill(m, d, skillId) {
     inhalt = `<ul class="glas liste-karte">${quellen.map((f) => `
       <li class="zeile"><span class="datei-icon">${icon("lernplan", 18)}</span>
         <span class="zeile-text"><span class="zeile-titel">${f.name.replace(".pdf", "").replaceAll("_", " ")}</span>
-        <span class="klein">${f.seiten} Seiten · ${datumKurz(f.datum)}</span></span></li>`).join("")}</ul>`;
+        <span class="klein">${f.seiten ? `${f.seiten} Seiten` : f.groesse} · ${datumKurz(f.datum)}</span></span></li>`).join("")}</ul>`;
   }
 
   return `
@@ -1367,8 +1370,9 @@ function tabSkill(m, d, skillId) {
       <div class="skill-kopf">
         <div>
           <h2>${icon(s.icon, 22)} ${s.name}</h2>
-          <p class="klein">${s.nutzt} · gerade eben erstellt</p>
+          <p class="klein">${s.nutzt}</p>
         </div>
+        <button class="knopf-hell" data-aktion="skill-entfernen" data-skill="${s.id}" data-modul="${m.id}">Tab entfernen</button>
       </div>
       ${inhalt}
     </div>`;
@@ -1605,16 +1609,24 @@ document.addEventListener("click", (event) => {
       break;
 
     // --- Skills ---
-    case "skill-hinzufuegen": {
-      zustand.skillErstellt = ds.skill;
-      neuZeichnen();
+    case "skill-hinzufuegen":
+    case "skill-entfernen": {
       const skill = SKILL_KATALOG.find((s) => s.id === ds.skill);
-      setTimeout(() => {
-        zustand.skillErstellt = null;
-        zustand.skills[ds.modul] = [...(zustand.skills[ds.modul] || []), ds.skill];
-        zeigeToast(`${skill.name} hinzugefügt`);
-        location.hash = `#/modul/${ds.modul}/skill-${ds.skill}`;
-      }, 1600);
+      const bisher = zustand.skills[ds.modul] || [];
+      const neu = ds.aktion === "skill-hinzufuegen" ? [...bisher, ds.skill] : bisher.filter((id) => id !== ds.skill);
+      // Echte Kurse: auf dem Mac merken (sonst wären die Tabs nach einem Neustart weg)
+      const gespeichert = MODUL_DETAILS[ds.modul]?.live ? LIVE.skillsSpeichern(ds.modul, neu) : Promise.resolve(true);
+      gespeichert.then((ok) => {
+        if (!ok) return;
+        zustand.skills[ds.modul] = neu;
+        if (ds.aktion === "skill-hinzufuegen") {
+          zeigeToast(`${skill.name} hinzugefügt`);
+          location.hash = `#/modul/${ds.modul}/skill-${ds.skill}`;
+        } else {
+          zeigeToast(`${skill.name} entfernt`);
+          location.hash = `#/modul/${ds.modul}/skill-hinzufuegen`;
+        }
+      });
       break;
     }
     case "vorschau-umschalten":

@@ -5,6 +5,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
+import ai
+import app as app_module
 import core
 import integrations
 from app import app
@@ -175,3 +177,81 @@ def test_claude_mcp_setup_never_overwrites_unreadable_config(client):
         answer = client.post("/api/claude/mcp", headers=AUTH)
         assert answer.status_code == 400 and "nicht lesbar" in answer.json()["detail"]
         assert config.read_text(encoding="utf-8") == broken
+
+
+def test_renaming_a_course_keeps_ai_results_learning_state_cards_and_tutor(client):
+    """Regression: Nach dem Umbenennen eines Kurses (StudyHub › Kurse) fehlten KI-Ergebnisse, Lernplan-Status,
+    Kartenfortschritt, Klausurtermin und Tutor-Fragen, weil sie am alten Pfad bzw. Kursnamen hingen."""
+    import cards
+    import studyhub
+    import tutor
+
+    config = core.load_config()
+    config["courses"] = {"Statistik [V] (HWS 2026)": {"name": "Statistik", "sync": True}}
+    core.save_config(config)
+    old = "Statistik/Vorlesung/07 Tests.txt"
+    file = core.MIRROR_DIR / old
+    file.write_text("Hypothesentests: Die Nullhypothese H0 wird gegen H1 getestet. " * 10, encoding="utf-8")
+    entry = ai.load_entry(file)
+    entry["flashcards"] = {"output": {"cards": [{"front": "Was ist H0?", "back": "Nullhypothese"}]}, "created": 1}
+    ai.save_entry(entry, old)
+    cards.review(cards.card_id(old, "Was ist H0?"), "gewusst")
+    cards.add_cards("Statistik", [("Alpha?", "5 %")], "Textdatei")
+    studyhub.set_state(old, "erledigt")
+    studyhub.set_hidden(old, True)
+    studyhub.set_hidden(old, False)
+    studyhub.set_exam("Statistik", "2099-02-01")
+    studyhub.set_skills("Statistik", ["glossar"])
+    tutor.add_fixed_questions(file, old, [{"question": "Was ist H0?", "answer": "Nullhypothese", "page": 1}])
+
+    answer = client.patch("/api/courses", json={"title": "Statistik [V] (HWS 2026)", "name": "Statistik I"},
+                          headers=AUTH)
+    assert answer.json() == {"ok": True}
+    new = "Statistik I/Vorlesung/07 Tests.txt"
+    assert [f["path"] for f in client.get("/api/files", headers=AUTH).json()["files"]] == [new]
+    assert client.get(f"/api/ai/result?path={new}", headers=AUTH).json()["flashcards"]
+    assert studyhub.load_state()[new]["status"] == "erledigt"
+    assert studyhub.load_exams() == {"Statistik I": "2099-02-01"}
+    assert studyhub.load_skills() == {"Statistik I": ["glossar"]}
+    data = cards.load()
+    assert data["reviews"][cards.card_id(new, "Was ist H0?")]["reps"] == 1
+    assert [c["kurs"] for c in data["imported"].values()] == ["Statistik I"]
+    assert tutor.stats("Statistik I")["questions"] == 1 and tutor.stats("Statistik")["questions"] == 0
+    detail = client.get("/api/studyhub", headers=AUTH).json()
+    assert detail["skills"] == {"Statistik I": ["glossar"]}
+
+
+def test_target_folder_must_be_a_full_path(client, monkeypatch):
+    for value in ("", "   ", "Uni/ILIAS"):
+        answer = client.patch("/api/settings", json={"target_dir": value}, headers=AUTH)
+        assert answer.status_code == 400 and "vollständigen Ordnerpfad" in answer.json()["detail"]
+    assert core.load_config()["target_dir"] == ""
+
+    monkeypatch.setattr(app_module, "sync_running", lambda: True)
+    answer = client.patch("/api/settings", json={"target_dir": str(core.APP_DIR / "Ziel")}, headers=AUTH)
+    assert answer.status_code == 409 and not (core.APP_DIR / "Ziel").exists()
+
+
+def test_skills_are_saved_per_course(client):
+    assert client.patch("/api/studyhub/skills", json={"kurs": "Statistik", "skills": ["glossar", "mindmap", "glossar"]},
+                        headers=AUTH).json() == {"skills": ["glossar", "mindmap"]}
+    assert client.get("/api/studyhub", headers=AUTH).json()["skills"] == {"Statistik": ["glossar", "mindmap"]}
+    assert client.patch("/api/studyhub/skills", json={"kurs": "Statistik", "skills": ["probeklausur"]},
+                        headers=AUTH).status_code == 400
+    assert client.patch("/api/studyhub/skills", json={"kurs": "Gibt es nicht", "skills": []},
+                        headers=AUTH).status_code == 404
+    assert client.patch("/api/studyhub/skills", json={"kurs": "Statistik", "skills": []}, headers=AUTH).json() == {
+        "skills": []}
+
+
+def test_reveal_only_shows_files_from_the_mirror(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(app_module.subprocess, "run", lambda args, **_: calls.append(args))
+    assert client.post("/api/reveal", json={"path": "../../etc/passwd"}, headers=AUTH).status_code == 404
+    assert client.post("/api/reveal", json={"path": "Statistik/Vorlesung/07 Tests.txt"}, headers=AUTH).json()["ok"]
+    assert calls == [["open", "-R", str((core.MIRROR_DIR / "Statistik/Vorlesung/07 Tests.txt").resolve())]]
+
+
+def test_ui_files_are_revalidated_after_updates(client):
+    answer = client.get("/ui/studyhub/js/app.js")
+    assert answer.status_code == 200 and answer.headers["cache-control"] == "no-cache"

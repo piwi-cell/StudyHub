@@ -112,3 +112,11 @@ def trim_log() -> None:
 def nfc(text: str) -> str:
     """macOS speichert Dateinamen teils zerlegt (NFD); verglichen wird immer in NFC."""
     return unicodedata.normalize("NFC", text)
+
+
+def moved_path(path: str, old: str, new: str) -> str | None:
+    """Relativer Pfad nach dem Umbenennen des Ordners old in new; None, wenn er nicht darin liegt."""
+    path, old, new = nfc(path), nfc(old), nfc(new)
+    if path == old or path.startswith(old + "/"):
+        return new + path[len(old):]
+    return None

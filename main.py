@@ -190,7 +190,7 @@ def main() -> None:
     start = "/" if args.klassisch else "/ui/studyhub/index.html"
     if args.browser:
         url = f"http://127.0.0.1:{port}{start}?t={token}"
-        print(f"ILIAS-Sync läuft: {url}")
+        print(f"StudyHub läuft: {url}")
         webbrowser.open(url)
         listener.on_show = lambda: webbrowser.open(url)
         try:

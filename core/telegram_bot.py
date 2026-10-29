@@ -89,7 +89,7 @@ def setup() -> bool:
         return False
     keyring.set_password(KEYCHAIN_SERVICE, "Telegram-Token", token)
     keyring.set_password(KEYCHAIN_SERVICE, "Telegram-Chat", str(chat["id"]))
-    send("✅ <b>ILIAS-Sync ist mit Telegram verbunden.</b>\nHier kommen neue ILIAS-Dateien und Warnungen an.")
+    send("✅ <b>StudyHub ist mit Telegram verbunden.</b>\nHier kommen neue ILIAS-Dateien und Warnungen an.")
     print("     Verbunden, Testnachricht gesendet.")
     return True
 

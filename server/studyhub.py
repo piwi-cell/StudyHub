@@ -22,6 +22,8 @@ import uploads
 STATE_FILE = core.APP_DIR / "studyhub.json"
 EXAM_FILE = core.APP_DIR / "klausuren.json"  # Kursordner → Klausurdatum (YYYY-MM-DD), von Hand eingetragen
 HIDDEN_FILE = core.APP_DIR / "ausgeblendet.json"  # relativer Pfad → Zeitpunkt; nur in der App ausgeblendet
+SKILLS_FILE = core.APP_DIR / "skills.json"  # Kursordner → hinzugefügte Skills (eigene Tabs)
+SKILLS = ("formelsammlung", "mindmap", "glossar", "uebungsaufgaben")  # wie SKILL_KATALOG in daten.js
 STATUS = ("offen", "inArbeit", "erledigt", "nochmal")
 NEU_TAGE = 3
 SEMESTER = re.compile(r"\((HWS|FSS|HS|FS|WS|SS|WT|ST)\s*(\d{2,4})\)")
@@ -66,6 +68,31 @@ def set_hidden(path: str, hidden: bool) -> None:
     else:
         files.pop(core.nfc(path), None)
     core.save_json(HIDDEN_FILE, files)
+
+
+def rename_folder(old: str, new: str) -> None:
+    """Kursordner umbenannt: Lernplan-Status, Ausblendungen und Klausurtermin hängen am Pfad bzw. Kursnamen."""
+    for file in (STATE_FILE, HIDDEN_FILE, EXAM_FILE, SKILLS_FILE):
+        data = core.load_json(file, {})
+        moved = {core.moved_path(key, old, new) or key: value for key, value in data.items()}
+        if moved != data:
+            core.save_json(file, moved)
+
+
+def load_skills() -> dict[str, list[str]]:
+    return core.load_json(SKILLS_FILE, {})
+
+
+def set_skills(course: str, skills: list[str]) -> list[str]:
+    """Skills eines Kurses setzen (Reihenfolge wie übergeben, ohne Doppelte); unbekannte lehnt sie ab."""
+    if unknown := [s for s in skills if s not in SKILLS]:
+        raise ValueError(f"Unbekannter Skill {unknown[0]}")
+    data, course = load_skills(), core.nfc(course)
+    data[course] = list(dict.fromkeys(skills))
+    if not data[course]:
+        del data[course]
+    core.save_json(SKILLS_FILE, data)
+    return data.get(course, [])
 
 
 def load_exams() -> dict:
