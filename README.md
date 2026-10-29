@@ -157,3 +157,5 @@ aistudio.google.com unter Einstellungen › KI › Gemma (Gemini API) speichern 
 - `pferd_runner.py`: `KeyError` behoben, wenn ein bekannter Kurs leere Einstellungen hat.
 - `core.update_config()`: Abgleich (neue Kurse) und Notion speichern nur ihre Änderung in die frisch geladene
   Konfiguration, statt die Kopie vom Start des Abgleichs zurückzuschreiben (Einstellungen gingen sonst verloren).
+- `core.moved_path()`: Hilfe für das Umbenennen von Kursen (StudyHub zieht Lernstand und KI-Ergebnisse mit).
+- Mitteilungen und Telegram-Texte heißen StudyHub statt ILIAS-Sync.

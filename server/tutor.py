@@ -546,6 +546,20 @@ def follow_up(question_id: int, text: str, brain: str, model: str | None = None)
     return {"answer": ai.complete(brain, SYSTEM, prompt, None, model).strip(), "sources": sources}
 
 
+def rename_folder(old: str, new: str) -> None:
+    """Kursordner umbenannt: Material, Fragen und bisherige Antworten bleiben (alles hängt am Pfad)."""
+    with closing(connect()) as db, db:
+        for table in ("files", "pages", "questions", "skipped"):
+            has_course = table != "skipped"
+            for (path,) in db.execute(f"SELECT DISTINCT path FROM {table}").fetchall():
+                if moved := core.moved_path(path, old, new):
+                    if has_course:
+                        db.execute(f"UPDATE {table} SET path = ?, course = ? WHERE path = ?",
+                                   (moved, moved.split("/", 1)[0], path))
+                    else:
+                        db.execute(f"UPDATE {table} SET path = ? WHERE path = ?", (moved, path))
+
+
 def stats(course: str | None = None) -> dict:
     with closing(connect()) as db:
         files = db.execute("SELECT COUNT(*) FROM files WHERE questions_ready = 1 AND (? IS NULL OR course = ?)",

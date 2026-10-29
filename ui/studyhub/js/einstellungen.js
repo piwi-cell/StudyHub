@@ -118,7 +118,7 @@ EINSTELLUNGEN.seiteKurse = function () {
         <li class="einst-zeile">
           <div class="einst-text">
             <span class="einst-titel">${esc(k.name)}${k.group ? ' <span class="mini">Übungsgruppe</span>' : ""}</span>
-            <span class="klein">${esc(k.title)}${k.files != null ? ` · ${k.files} Dateien` : ""}</span>
+            <span class="klein">${esc(k.title)}${k.files != null ? ` · ${anzahl(k.files, "Datei", "Dateien")}` : ""}</span>
             ${umbenennen ? `
               <form class="einst-form" data-form="einst-umbenennen" data-titel="${esc(k.title)}">
                 <input class="tutor-feld" name="wert" value="${esc(k.name)}" aria-label="Neuer Name">

@@ -134,7 +134,7 @@ function schrittAbgleich(s) {
     return `
       <section class="einrichtung-karte glas">
         <h2>${icon(a.fertig ? "haken" : "sync", 22)} ${a.fertig ? "Fertig!" : "Hole deine Dateien aus ILIAS …"}</h2>
-        <p>${a.fertig ? `${a.dateien} Dateien sind da und nach Kursen sortiert.` : `${a.dateien} Dateien bisher. Das kann beim ersten Mal ein paar Minuten dauern.`}</p>
+        <p>${a.fertig ? `${anzahl(a.dateien, "Datei ist", "Dateien sind")} da und nach Kursen sortiert.` : `${anzahl(a.dateien, "Datei", "Dateien")} bisher. Das kann beim ersten Mal ein paar Minuten dauern.`}</p>
         <div class="balken ${a.fertig ? "" : "balken-endlos"}"><span style="width:${a.fertig ? 100 : 35}%"></span></div>
         ${neu ? `<ul class="liste-zeilen einrichtung-dateien">${neu}</ul>` : ""}
         ${a.fertig ? `<div class="einrichtung-knoepfe"><a class="pille" href="#/">Zu StudyHub ${icon("pfeil", 18)}</a></div>` : ""}

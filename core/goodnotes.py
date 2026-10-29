@@ -48,8 +48,8 @@ def import_files(paths: list[Path]) -> list[Path]:
 def test_import() -> None:
     """Importiert eine einseitige Test-PDF, damit man das Verhalten vorher sieht."""
     with tempfile.TemporaryDirectory() as tmp:
-        text, pdf = Path(tmp, "test.txt"), Path(tmp, "ILIAS-Sync Test.pdf")
-        text.write_text("ILIAS-Sync: Test-Import in GoodNotes.\nDiese Seite kann gelöscht werden.\n", encoding="utf-8")
+        text, pdf = Path(tmp, "test.txt"), Path(tmp, "StudyHub Test.pdf")
+        text.write_text("StudyHub: Test-Import in GoodNotes.\nDiese Seite kann gelöscht werden.\n", encoding="utf-8")
         with open(pdf, "wb") as out:
             subprocess.run(["cupsfilter", "-i", "text/plain", "-m", "application/pdf", str(text)], stdout=out,
                            stderr=subprocess.DEVNULL, check=True)

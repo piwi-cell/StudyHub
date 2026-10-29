@@ -403,6 +403,18 @@ def save_entry(entry: dict, relative: str) -> None:
     core.save_json(_cache_file(entry["hash"]), entry)
 
 
+def rename_folder(old: str, new: str) -> int:
+    """Kursordner umbenannt: gespeicherte Pfade der Ergebnisse mitziehen (StudyHub findet sie über den Pfad)."""
+    moved = 0
+    for file in CACHE_DIR.glob("*.json") if CACHE_DIR.exists() else []:
+        entry = json.loads(file.read_text(encoding="utf-8"))
+        if path := core.moved_path(entry.get("path", ""), old, new):
+            entry["path"] = path
+            core.save_json(file, entry)
+            moved += 1
+    return moved
+
+
 def all_entries() -> list[dict]:
     if not CACHE_DIR.exists():
         return []
@@ -891,9 +903,11 @@ def run(path: Path, relative: str, task: str, provider: str, model: str | None =
         raise AIError(f"Unbekannter Anbieter {provider}")
     result = {**meta, "output": output, "created": time.time(), "seconds": round(time.monotonic() - started, 1)}
     result["cost_usd"] = cost(result)  # Preis am Erstellungstag festhalten
+    # Frisch laden: Während der KI-Anfrage kann z. B. Claude Desktop (MCP) ein anderes Ergebnis gespeichert haben
+    entry = load_entry(path, entry["hash"])
     if task == "qa":
         result["question"] = question.strip()
-        entry["qa"].append(result)
+        entry.setdefault("qa", []).append(result)
     else:
         entry[task] = result
     save_entry(entry, relative)

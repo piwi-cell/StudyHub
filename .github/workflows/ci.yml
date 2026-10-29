@@ -26,7 +26,7 @@ jobs:
           version: "0.12.19"  # wie scripts/setup.sh
 
       - name: Install Python
-        run: uv python install 3.13
+        run: uv python install 3.14  # wie die Installation am Mac (neueste erlaubte Version)
 
       - name: Install dependencies
         run: uv sync --locked

@@ -140,6 +140,17 @@ function aufbereiten(modulId, d) {
   LERNPLAN_START[modulId] = zaehleStatus(alleEintraege(d.lernplan));
 }
 
+// Hinzugefügte Skills eines Kurses speichern (PATCH /api/studyhub/skills); false bei Fehler
+LIVE.skillsSpeichern = async function (modulId, skills) {
+  try {
+    await api("/api/studyhub/skills", { method: "PATCH", body: { kurs: MODUL_DETAILS[modulId].kurs, skills } });
+    return true;
+  } catch (fehler) {
+    zeigeToast(fehler.message);
+    return false;
+  }
+};
+
 LIVE.laden = async function () {
   const [studyhub, tutor] = await Promise.all([
     api("/api/studyhub"),
@@ -153,6 +164,7 @@ LIVE.laden = async function () {
   for (const [id, d] of Object.entries(studyhub.details)) {
     aufbereiten(id, d);
     MODUL_DETAILS[id] = d;
+    zustand.skills[id] = studyhub.skills?.[d.kurs] || [];
   }
 
   const daten = studyhub.daten;

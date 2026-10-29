@@ -105,6 +105,23 @@ def add_cards(course: str, cards: list[tuple[str, str]], origin: str) -> dict:
     return {"neu": added, "doppelt": len(cards[:MAX_IMPORT]) - added, "gekuerzt": len(cards) > MAX_IMPORT}
 
 
+def rename_folder(old: str, new: str, ai_entries: dict[str, dict]) -> None:
+    """Kursordner umbenannt: Der Lernstand der KI-Karten hängt an Dateipfad und Vorderseite, eigene Karten
+    am Kursnamen. ai_entries: Pfad → KI-Cache-Eintrag, schon mit den neuen Pfaden."""
+    data, old, new = load(), core.nfc(old), core.nfc(new)
+    for path, entry in ai_entries.items():
+        before = core.moved_path(path, new, old)
+        if before is None:
+            continue
+        for card in ((entry.get("flashcards") or {}).get("output") or {}).get("cards", []):
+            review = data["reviews"].pop(card_id(before, card["front"]), None)
+            if review is not None:
+                data["reviews"][card_id(path, card["front"])] = review
+    for card in data["imported"].values():
+        card["kurs"] = core.moved_path(card["kurs"], old, new) or card["kurs"]
+    save(data)
+
+
 def course_cards(course: str, data: dict | None = None) -> list[dict]:
     """Eigene Karten eines Kurses: [{id, front, back, quelle}]."""
     data = data or load()

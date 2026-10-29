@@ -195,10 +195,11 @@ function seiteBibliotheken() {
   }
 
   const tag = BIBLIOTHEKEN.tag ?? d.jetzt.wochentag;
+  const alterText = (min) => (min < 120 ? `${min} Min.` : min < 2880 ? `${Math.round(min / 60)} Std.` : `${Math.round(min / 1440)} Tagen`);
   const offen = d.bereiche.filter((b) => b.aktuell && b.offen);
   const leerste = offen.filter((b) => b.aktuell.stufe !== "hoch").sort((x, y) => x.aktuell.prozent - y.aktuell.prozent)[0];
   const takt = d.taktMinuten ? ` · die UB aktualisiert etwa alle ${d.taktMinuten} Min.` : "";
-  const unter = `<p class="klein">${d.stand ? `Stand ${uhrzeit(d.stand)} Uhr${d.alterMinuten > 1 ? ` (vor ${d.alterMinuten} Min.)` : ""}` : "Noch keine Messung"}${takt}
+  const unter = `<p class="klein">${d.stand ? `Stand ${uhrzeit(d.stand)} Uhr${d.alterMinuten > 1 ? ` (vor ${alterText(d.alterMinuten)})` : ""}` : "Noch keine Messung"}${takt}
     · <a href="${esc(d.quelle)}" target="_blank" rel="noreferrer">Quelle: UB Mannheim</a></p>`;
 
   const tage = d.wochentage.map((name, i) => `

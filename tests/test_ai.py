@@ -190,3 +190,22 @@ def test_truncated_claude_json_is_a_readable_error(monkeypatch):
     Response.stop_reason = "end_turn"
     with pytest.raises(ai.AIFormatError, match="kein gültiges JSON"):
         ai.run(path, relative, "flashcards", "claude")
+
+
+def test_result_saved_during_a_request_is_kept(monkeypatch):
+    """Regression: ai.run speicherte die Fassung vom Anfang der Anfrage. Speicherte währenddessen z. B. Claude
+    Desktop (MCP) ein Lernthema, war es danach weg."""
+    path, relative = _doc()
+
+    def slow_claude(pages, path_, task, instruction, model):
+        other = ai.load_entry(path_)
+        other["thema"] = {"output": {"titel": "Von Claude Desktop"}, "created": 1}
+        ai.save_entry(other, relative)
+        return "## Zusammenfassung", {"provider": "claude", "model": model}
+
+    monkeypatch.setattr(ai, "_claude", slow_claude)
+    monkeypatch.setattr(ai, "has_profile", lambda: True)
+    ai.run(path, relative, "summary", "claude")
+    entry = ai.load_entry(path)
+    assert entry["summary"]["output"] == "## Zusammenfassung"
+    assert entry["thema"]["output"]["titel"] == "Von Claude Desktop"

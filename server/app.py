@@ -129,7 +129,7 @@ async def lifespan(_app: FastAPI):
     _tutor_wake.set()
 
 
-app = FastAPI(title="ILIAS-Sync", lifespan=lifespan)
+app = FastAPI(title="StudyHub", lifespan=lifespan)
 
 
 def check_token(request: Request, t: str | None = Query(None)) -> None:
@@ -216,7 +216,17 @@ def index() -> str:
     return (UI_DIR / "index.html").read_text(encoding="utf-8")
 
 
-app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
+class UIFiles(StaticFiles):
+    """Oberfläche immer beim Server nachfragen (ETag): Ohne Angabe cachen Browser Skripte heuristisch und
+    zeigen nach einem Update sonst die alte Fassung."""
+
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/ui", UIFiles(directory=UI_DIR), name="ui")
 
 
 # --- Status -------------------------------------------------------------------
@@ -309,12 +319,24 @@ def update_course(update: CourseUpdate) -> dict:
         raise HTTPException(404, "Kurs nicht gefunden")
     if update.sync is not None:
         config["courses"][update.title]["sync"] = update.sync
+    old = config["courses"][update.title]["name"]
     if update.name:
         if not cli.rename_course(config, state, update.title, update.name):
             raise HTTPException(409, f"„{courses.safe_folder_name(update.name)}“ ist schon vergeben")
     core.save_config(config)
     core.save_state(state)
+    if (new := config["courses"][update.title]["name"]) != old:
+        rename_app_data(old, new)
     return {"ok": True}
+
+
+def rename_app_data(old: str, new: str) -> None:
+    """Kursordner umbenannt: KI-Ergebnisse, Lernplan, Karten und Tutor hängen am Pfad und ziehen mit."""
+    ai.rename_folder(old, new)
+    studyhub.rename_folder(old, new)
+    cards.rename_folder(old, new, cached_by_path())
+    tutor.rename_folder(old, new)
+    core.log(f"Kurs umbenannt: {old} → {new} (Lernstand und KI-Ergebnisse übernommen)")
 
 
 class IncludeNew(BaseModel):
@@ -349,9 +371,9 @@ def get_file(path: str) -> FileResponse:
 @app.post("/api/reveal", dependencies=[api])
 def reveal(body: dict) -> dict:
     config = core.load_config()
-    relative = body.get("path", "")
-    target = Path(config["target_dir"]) / relative if config["target_dir"] else None
-    file = target if target and target.exists() else mirror_path(relative)
+    file = mirror_path(body.get("path", ""))  # nur Dateien aus dem Spiegel, kein „../“
+    target = Path(config["target_dir"]) / file.relative_to(MIRROR_DIR.resolve()) if config["target_dir"] else None
+    file = target if target and target.exists() else file
     subprocess.run(["open", "-R", str(file)], check=False)
     return {"ok": True}
 
@@ -547,7 +569,7 @@ def account(body: Account) -> dict:
     if not uni_id or not body.password:
         raise HTTPException(400, "Uni-ID und Passwort angeben")
     previous = config["uni_id"]
-    config["uni_id"] = uni_id
+    config["uni_id"] = uni_id  # für die PFERD-Konfiguration; gespeichert wird unten in die frische Fassung
     keyring.set_password(KEYCHAIN_SERVICE, uni_id, body.password)
     (APP_DIR / "cookies.txt").unlink(missing_ok=True)
     try:
@@ -558,8 +580,12 @@ def account(body: Account) -> dict:
                             else "Keine Verbindung zu ILIAS. Internet prüfen.") from None
     if previous and previous != uni_id:
         cli._forget_password(previous)
-    config["courses"].update(result["new"])
-    core.save_config(config)
+
+    def remember(fresh: dict) -> None:  # die Prüfung dauert: Einstellungen von währenddessen nicht überschreiben
+        fresh["uni_id"] = uni_id
+        fresh["courses"].update({key: c for key, c in result["new"].items() if key not in fresh["courses"]})
+
+    core.update_config(remember)
     return {"ok": True, "courses": len(result["entries"])}
 
 
@@ -587,7 +613,11 @@ class SettingsUpdate(BaseModel):
 def update_settings(body: SettingsUpdate) -> dict:
     config, state = core.load_config(), core.load_state()
     if body.target_dir is not None:
-        target = Path(body.target_dir).expanduser()
+        target = Path(body.target_dir.strip()).expanduser()
+        if not body.target_dir.strip() or not target.is_absolute():
+            raise HTTPException(400, "Bitte einen vollständigen Ordnerpfad angeben, z. B. ~/Documents/ILIAS")
+        if str(target) != config["target_dir"] and sync_running():
+            raise HTTPException(409, "Gerade läuft ein Abgleich, bitte danach den Zielordner ändern")
         try:
             target.mkdir(parents=True, exist_ok=True)
         except OSError as error:
@@ -695,7 +725,7 @@ def telegram_disconnect() -> dict:
 @app.post("/api/telegram/test", dependencies=[api])
 def telegram_test() -> dict:
     try:
-        telegram_bot.send("👋 Testnachricht aus der ILIAS-Sync-App.")
+        telegram_bot.send("👋 Testnachricht von StudyHub.")
     except telegram_bot.TelegramError as error:
         raise HTTPException(400, f"Telegram: {error}") from None
     return {"ok": True}
@@ -870,6 +900,7 @@ def studyhub_data() -> dict:
     status = core.load_state()
     data = studyhub.overview(config, files, cached, stats, studyhub.load_state(), karten=cards.load(),
                              exams=studyhub.load_exams(), hidden=[file_info(p, cached) for p in mirror_files(True)])
+    data["skills"] = studyhub.load_skills()
     data["sync"] = {
         "configured": bool(config["uni_id"] and config["target_dir"]), "demo": DEMO, "running": sync_running(),
         "letzter": cli.last_sync_line(), "fehler": status["crawl_failures"],
@@ -888,6 +919,20 @@ def studyhub_lernplan(body: LernplanUpdate) -> dict:
     mirror_path(body.pfad)  # nur echte Dateien
     try:
         return studyhub.set_state(body.pfad, body.status, body.notiz)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+class SkillsUpdate(BaseModel):
+    kurs: str
+    skills: list[str] = Field(max_length=20)
+
+
+@app.patch("/api/studyhub/skills", dependencies=[api])
+def studyhub_skills(body: SkillsUpdate) -> dict:
+    """Hinzugefügte Skills eines Kurses (eigene Tabs wie Glossar, Formelsammlung) dauerhaft merken."""
+    try:
+        return {"skills": studyhub.set_skills(_course(body.kurs), body.skills)}
     except ValueError as error:
         raise HTTPException(400, str(error)) from None
 

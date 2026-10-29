@@ -2,7 +2,7 @@
 name = "studyhub"
 version = "1.1.0"
 description = "Mac-App: ILIAS-Dateien automatisch laden und mit KI zum Lernen aufbereiten"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.15"  # neuere Python-Versionen erst nach Test (Pakete wie pyobjc)
 dependencies = [
     "pferd==3.9.4",          # ILIAS-Downloader; pferd_runner.py patcht Interna, Version nicht ohne Test ändern
     "keyring==25.7.0",
