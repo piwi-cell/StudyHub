@@ -1,0 +1,7 @@
+.venv/
+.tools/
+demo-data/
+__pycache__/
+*.pyc
+ILIAS-Lerner.app/
+StudyHub.app/

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StudyHub</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+
+    <!-- Top-Bar: Logo, Suche, ILIAS-Status, Claude-Lerncoach, Synchronisieren, Profil -->
+    <header class="topbar">
+      <button class="icon-knopf nur-mobil" id="menue-knopf" aria-label="Register öffnen" aria-expanded="false" aria-controls="sidebar" data-icon="menue"></button>
+
+      <a href="#/" class="logo" aria-label="StudyHub, zur Startseite">
+        <span class="logo-zeichen" data-icon="logo"></span>
+        <span>StudyHub</span>
+        <span class="demo-marke" title="Mit --demo gestartet: Beispieldaten, kein ILIAS-Abruf">DEMO</span>
+      </a>
+
+      <label class="suche glas-stark">
+        <span data-icon="suche"></span>
+        <input type="search" id="suche" placeholder="In allen Dokumenten suchen" aria-label="In allen Dokumenten suchen">
+        <kbd>⌘K</kbd>
+      </label>
+
+      <div class="topbar-rechts">
+        <div class="sync-status" id="sync-status" role="status">
+          <span class="sync-punkt" aria-hidden="true"></span>
+          <span id="sync-text">ILIAS verbunden · Sync vor 4 Min.</span>
+        </div>
+        <button class="knopf-hell" id="claude-knopf" title="Neuer Chat in Claude Desktop: Claude coacht dich mit deinen Unterlagen">
+          <span data-icon="funken"></span><span class="knopf-text">Claude</span>
+        </button>
+        <button class="knopf-hell" id="sync-knopf">
+          <span data-icon="sync"></span><span class="knopf-text">Synchronisieren</span>
+        </button>
+        <a class="avatar" id="avatar" href="#/einstellungen" aria-label="Profil und Einstellungen">SC</a>
+      </div>
+    </header>
+    <div class="demo-band" role="note">
+      <b>Demo-Version mit Beispieldaten.</b> ILIAS-Abruf, Messung im Hintergrund und Telegram sind aus. Deine echten Daten: StudyHub.app.
+    </div>
+
+    <div class="rahmen">
+      <!-- Register (linke Seitenleiste) – wird per JavaScript befüllt -->
+      <nav class="sidebar glas" id="sidebar" aria-label="Register"></nav>
+
+      <!-- Hier landet die jeweilige Seite (Startseite oder Modulseite) -->
+      <main id="inhalt" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Reihenfolge wichtig: erst Daten, dann Icons, dann die Anbindung an die echte App, dann die App -->
+  <script src="js/daten.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/live.js"></script>
+  <script src="js/einstellungen.js"></script>
+  <script src="js/bibliotheken.js"></script>
+  <script src="js/einrichtung.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

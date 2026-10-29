@@ -1,0 +1,4 @@
+#!/bin/bash
+# Befehl „ilias-sync“ (liegt als Verknüpfung in ~/.local/bin)
+APP="$HOME/Library/Application Support/ILIAS-Sync"
+exec "$APP/venv/bin/python" "$APP/app/cli.py" "$@"

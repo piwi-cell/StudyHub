@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests (Linux)
+    # Die App läuft nur auf macOS, die Tests ersetzen macOS-Werkzeuge (Schlüsselbund, launchd, Spotlight) aber
+    # durch Platzhalter. Ein macOS-Job bekam für das private Repo nie einen Runner (nach 15 Min. abgebrochen);
+    # Mac-Eigenheiten (Quartz, Hintergrund-Jobs, Fenster) prüft deshalb weiter der Test am Mac.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Europe/Berlin  # wie am Mac: Tests mit Uhrzeiten (Bibliotheken, Lernplan)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.19"  # wie scripts/setup.sh
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Tests (pytest)
+        run: uv run pytest -q

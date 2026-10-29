@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>ILIAS-Sync Anleitung</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,750&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: eine ruhige Lesespalte wie ein Handbuch; Terminal-Blöcke sind die einzigen dunklen Flächen. */
+:root {
+  --paper: #f4f6f7;
+  --surface: #ffffff;
+  --ink: #17212b;
+  --muted: #56636f;
+  --rule: #d6dde2;
+  --accent: #0d6b59;
+  --accent-soft: #e2f1ec;
+  --term-bg: #17212b;
+  --term-fg: #d5efe6;
+  --term-dim: #7f97a3;
+  --term-ok: #6fd6b3;
+  --warn: #8a5300;
+  --warn-soft: #fbf0dc;
+  --display: "Bricolage Grotesque", "Avenir Next", "Helvetica Neue", sans-serif;
+  --body: "Source Sans 3", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1419; --surface: #151d24; --ink: #e2e8ec; --muted: #94a2ad; --rule: #26313a;
+    --accent: #4fcfae; --accent-soft: #14302a; --term-bg: #070b0f; --term-fg: #cdeee2;
+    --term-dim: #6f8793; --term-ok: #6fd6b3; --warn: #f0b45e; --warn-soft: #2a2213;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1419; --surface: #151d24; --ink: #e2e8ec; --muted: #94a2ad; --rule: #26313a;
+  --accent: #4fcfae; --accent-soft: #14302a; --term-bg: #070b0f; --term-fg: #cdeee2;
+  --term-dim: #6f8793; --term-ok: #6fd6b3; --warn: #f0b45e; --warn-soft: #2a2213;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.6 var(--body);
+  padding: 0 20px;
+  padding-block: 48px 72px;
+}
+main { max-width: 44rem; margin: 0 auto; display: grid; gap: 56px; }
+section { display: grid; gap: 16px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.4rem, 7vw, 3.4rem); font-weight: 750; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 750; letter-spacing: -0.01em; }
+h3 { font-size: 1.12rem; font-weight: 600; }
+p, ul, ol { margin: 0; }
+ul { padding-left: 1.2em; display: grid; gap: 6px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+strong { font-weight: 600; }
+code, kbd {
+  font-family: var(--mono); font-size: 0.86em;
+  background: var(--accent-soft); color: var(--ink);
+  padding: 0.08em 0.36em; border-radius: 4px;
+}
+kbd { border: 1px solid var(--rule); background: var(--surface); }
+
+.eyebrow {
+  font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent);
+}
+.lede { font-size: 1.2rem; color: var(--muted); max-width: 36rem; }
+header { display: grid; gap: 14px; }
+
+/* Terminal-Blöcke */
+.term {
+  background: var(--term-bg); color: var(--term-fg);
+  font: 0.9rem/1.55 var(--mono);
+  border-radius: 10px; padding: 16px 18px;
+  overflow-x: auto; white-space: pre; margin: 0;
+}
+.term .dim { color: var(--term-dim); }
+.term .ok { color: var(--term-ok); }
+.term .prompt { color: var(--term-dim); user-select: none; }
+.cmd { display: flex; gap: 10px; align-items: stretch; min-width: 0; }
+.cmd .term { flex: 1; min-width: 0; }
+.copy {
+  font: 600 0.85rem var(--body); color: var(--accent);
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+  padding: 0 16px; cursor: pointer; white-space: nowrap;
+}
+.copy:hover { border-color: var(--accent); }
+.copy:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Schnellstart */
+.quick {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 14px;
+  padding: 22px; display: grid; gap: 14px;
+}
+.quick p { color: var(--muted); }
+
+/* Schritte: echte Reihenfolge, daher nummeriert */
+.steps { list-style: none; padding: 0; display: grid; gap: 22px; counter-reset: step; }
+.steps > li { display: grid; grid-template-columns: 2.2rem 1fr; gap: 4px 14px; counter-increment: step; }
+.steps > li::before {
+  content: counter(step); grid-row: span 3;
+  font: 750 1.05rem var(--display); color: var(--accent);
+  width: 2.2rem; height: 2.2rem; display: grid; place-items: center;
+  border: 1.5px solid var(--accent); border-radius: 50%;
+}
+.steps > li > * { grid-column: 2; min-width: 0; }
+
+.note {
+  background: var(--warn-soft); color: var(--ink);
+  border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px;
+}
+.note strong { color: var(--warn); }
+
+/* Befehls- und Fragenliste */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.97rem; }
+th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 600 0.78rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+td:first-child { white-space: nowrap; }
+.faq { display: grid; gap: 20px; }
+.faq div { display: grid; gap: 4px; }
+.faq h3 { font-family: var(--body); font-size: 1.02rem; }
+.faq p { color: var(--muted); }
+.modules { display: grid; gap: 28px; }
+.modules > div { display: grid; gap: 8px; }
+.tag {
+  font: 600 0.72rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--warn); margin-left: 8px; vertical-align: 2px;
+}
+footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--rule); padding-top: 20px; }
+
+@media (max-width: 520px) {
+  body { font-size: 16px; }
+  .cmd { flex-direction: column; }
+  .copy { padding: 10px 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .copy { transition: border-color 0.15s ease; }
+}
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow">Für Studierende der Uni Mannheim · inoffiziell</span>
+    <h1>ILIAS-Sync</h1>
+    <p class="lede">Holt neue Vorlesungsfolien, Übungsblätter und alles andere aus deinen ILIAS-Kursen automatisch auf deinen Mac, sortiert nach Fach. Einmal einrichten, danach musst du ILIAS nicht mehr nach neuen Dateien durchklicken.</p>
+    <div class="quick">
+      <strong>Schnellstart</strong>
+      <p>ZIP-Datei in „Downloads“ per Doppelklick entpacken, dann das Programm Terminal öffnen (<kbd>⌘</kbd> + <kbd>Leertaste</kbd>, „Terminal“ tippen, <kbd>Enter</kbd>) und diese Zeile einfügen:</p>
+      <div class="cmd">
+        <pre class="term" id="cmd-install"><span class="prompt">% </span>bash ~/Downloads/ILIAS-Sync/install.sh</pre>
+        <button class="copy" type="button" data-copy="bash ~/Downloads/ILIAS-Sync/install.sh">Kopieren</button>
+      </div>
+      <p>Danach führt dich ein Assistent in etwa fünf Minuten durch die Einrichtung.</p>
+    </div>
+  </header>
+
+  <section>
+    <h2>Was ILIAS-Sync macht</h2>
+    <ul>
+      <li>Es liest deine Kurse aus „Meine Kurse und Gruppen“ und lädt alle Dateien daraus in einen Ordner deiner Wahl, je Fach ein Unterordner.</li>
+      <li>Danach prüft es von 6 bis 23 Uhr alle 30 Minuten (oder stündlich) auf Neues und meldet neue Dateien mit einer Mitteilung auf dem Mac.</li>
+      <li>Neue Kurse, etwa im nächsten Semester, erkennt es selbst und nimmt sie auf.</li>
+      <li>Optional: Import in GoodNotes, eine To-do-Liste in Notion und Nachrichten per Telegram.</li>
+    </ul>
+    <p>So sieht dein Zielordner danach aus:</p>
+<pre class="term"><span class="dim">ILIAS/</span>
+├── Accounting/
+│   ├── 01_Lecture/
+│   │   ├── L01 Introduction.pdf
+│   │   └── L02 Balance Sheet.pdf
+│   └── 03_Tutorial/
+├── Analysis/
+│   ├── Vorlesungsfolien/
+│   └── Übungen/
+├── Finanzmathematik VL/
+└── Grundlagen der Volkswirtschaftslehre/
+    └── Alte Klausuren/</pre>
+  </section>
+
+  <section>
+    <h2>Das brauchst du</h2>
+    <ul>
+      <li>Einen Mac (Apple-Chip oder Intel) mit Internetverbindung</li>
+      <li>Deine Uni-ID und dein Uni-Passwort, also dieselben Daten wie für ILIAS und Portal²</li>
+      <li>Etwa 300 MB freien Speicher, dazu zweimal der Platz deiner Kursdateien (siehe „Probleme lösen“)</li>
+    </ul>
+    <p>Terminal-Kenntnisse brauchst du nicht. Du tippst nur Antworten auf Fragen ein.</p>
+  </section>
+
+  <section>
+    <h2>Installieren</h2>
+    <ol class="steps">
+      <li>
+        <h3>ZIP entpacken</h3>
+        <p>Lade <code>ILIAS-Sync.zip</code> in deinen Ordner „Downloads“ und öffne sie per Doppelklick. Es entsteht der Ordner <code>ILIAS-Sync</code>.</p>
+      </li>
+      <li>
+        <h3>Terminal öffnen</h3>
+        <p>Drücke <kbd>⌘</kbd> + <kbd>Leertaste</kbd>, tippe „Terminal“ und drücke <kbd>Enter</kbd>.</p>
+      </li>
+      <li>
+        <h3>Installation starten</h3>
+        <p>Füge diese Zeile ins Terminal ein und drücke <kbd>Enter</kbd>:</p>
+        <div class="cmd">
+          <pre class="term"><span class="prompt">% </span>bash ~/Downloads/ILIAS-Sync/install.sh</pre>
+          <button class="copy" type="button" data-copy="bash ~/Downloads/ILIAS-Sync/install.sh">Kopieren</button>
+        </div>
+        <p>Liegt der Ordner woanders, tippst du <code>bash </code> (mit Leerzeichen) und ziehst die Datei <code>install.sh</code> aus dem Finder ins Terminal-Fenster.</p>
+      </li>
+      <li>
+        <h3>Assistent folgen</h3>
+        <p>Nach ein bis zwei Minuten Installation startet der Einrichtungsassistent von selbst.</p>
+      </li>
+    </ol>
+    <div class="note">
+      <p><strong>Alternative per Doppelklick:</strong> Im Ordner liegt auch <code>Installieren.command</code>. Blockiert macOS das Öffnen, weil die Datei aus dem Internet stammt, gehe zu Systemeinstellungen › Datenschutz &amp; Sicherheit und klicke unten auf „Dennoch öffnen“. Mit dem Terminal-Befehl oben entfällt dieser Schritt.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Der Einrichtungsassistent</h2>
+    <ol class="steps">
+      <li>
+        <h3>ILIAS-Anmeldung</h3>
+        <p>Gib deine Uni-ID und dein Passwort ein. Beim Passwort erscheinen keine Zeichen, das ist normal. ILIAS-Sync prüft die Anmeldung und findet dabei deine Kurse.</p>
+      </li>
+      <li>
+        <h3>Deine Kurse</h3>
+        <p>Du siehst alle Kurse und Übungsgruppen mit einem vorgeschlagenen Ordnernamen:</p>
+<pre class="term">    1  <span class="ok">✓</span>  Strategic and International Management    <span class="dim">MAN 301 … [V] (HWS 2026)</span>
+    2  <span class="ok">✓</span>  Grundlagen der Volkswirtschaftslehre      <span class="dim">Grundlagen … [V] (HWS 2026)</span>
+    3  <span class="ok">✓</span>  Introduction to Financial Accounting      <span class="dim">ACC 300 … [V] (WT 2026)</span>
+    4  <span class="dim">·  License Information (Student Univ…</span>
+
+  <span class="dim">Nummer = an/aus  ·  u Nummer = Ordner umbenennen  ·  Enter = fertig</span>
+  <span class="prompt">&gt; </span>u 3
+  Neuer Ordnername für „Introduction to Financial Accounting“: Accounting</pre>
+        <p>Tippe eine Nummer, um einen Kurs an- oder abzuwählen, oder <code>u</code> und die Nummer, um den Ordner umzubenennen. Mit <kbd>Enter</kbd> geht es weiter. Übungsgruppen landen als Unterordner beim passenden Kurs.</p>
+      </li>
+      <li>
+        <h3>Zielordner</h3>
+        <p>Wähle, wohin die Dateien kommen: <strong>iCloud Drive › ILIAS</strong> (dann auch auf iPad und iPhone), <strong>Dokumente › ILIAS</strong> oder einen beliebigen Ordner, etwa in OneDrive. Tippe dazu die Nummer ein. Du kannst auch direkt einen Pfad wie <code>~/Desktop/ILIAS</code> einfügen oder einen Ordner aus dem Finder ins Terminal-Fenster ziehen.</p>
+      </li>
+      <li>
+        <h3>Zusatzfunktionen und Zeitplan</h3>
+        <p>GoodNotes, Notion und Telegram kannst du hier einschalten oder überspringen und später nachholen. Danach wählst du, ob ILIAS alle 30 Minuten oder stündlich geprüft wird.</p>
+      </li>
+    </ol>
+    <p>Zum Schluss lädt der erste Abgleich alle Dateien, das dauert einige Minuten.</p>
+    <div class="note">
+      <p><strong>Wichtig:</strong> Fragt macOS danach, ob „python3.13“ auf einen Ordner zugreifen darf, wähle „Erlauben“. Ohne diese Erlaubnis kann der automatische Abgleich nichts speichern.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Im Alltag</h2>
+    <ul>
+      <li>Der Abgleich läuft im Hintergrund, auch nach einem Neustart, sobald du dich anmeldest. Ist der Mac zugeklappt, holt er den Abgleich beim Aufwachen nach.</li>
+      <li>Ändert ein Dozent eine Datei, kommt sie als zusätzliche Kopie „… (aktualisiert TT.MM.)“ dazu. Deine alte Fassung samt Notizen bleibt unverändert.</li>
+      <li>Was du im Zielordner löschst oder verschiebst, wird nicht erneut hineinkopiert. ILIAS-Sync überschreibt dort nie etwas.</li>
+      <li>Dateien, die auf ILIAS gelöscht werden, bleiben bei dir erhalten.</li>
+    </ul>
+    <p>Alles Weitere steuerst du mit dem Befehl <code>ilias-sync</code> in einem neuen Terminal-Fenster. Ohne Zusatz zeigt er eine Übersicht mit Menü.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Befehl</th><th>Was er tut</th></tr></thead>
+        <tbody>
+          <tr><td><code>ilias-sync</code></td><td>Übersicht und Menü</td></tr>
+          <tr><td><code>ilias-sync jetzt</code></td><td>Sofort abgleichen, auch nachts</td></tr>
+          <tr><td><code>ilias-sync kurse</code></td><td>Kurse an- oder abwählen, Ordner umbenennen</td></tr>
+          <tr><td><code>ilias-sync ordner</code></td><td>Zielordner ändern</td></tr>
+          <tr><td><code>ilias-sync module</code></td><td>GoodNotes, Notion und Telegram ein- oder ausschalten</td></tr>
+          <tr><td><code>ilias-sync zugang</code></td><td>Uni-ID oder Passwort ändern, etwa nach einer Passwortänderung</td></tr>
+          <tr><td><code>ilias-sync stop</code></td><td>Automatischen Abgleich anhalten; er bleibt auch nach einem Neustart aus</td></tr>
+          <tr><td><code>ilias-sync start</code></td><td>Automatischen Abgleich fortsetzen</td></tr>
+          <tr><td><code>ilias-sync log</code></td><td>Die letzten Einträge im Protokoll</td></tr>
+          <tr><td><code>ilias-sync deinstallieren</code></td><td>Alles entfernen; deine Dateien bleiben</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Zusatzfunktionen</h2>
+    <div class="modules">
+      <div>
+        <h3>GoodNotes <span class="tag">experimentell</span></h3>
+        <p>GoodNotes hat keine Schnittstelle für automatische Importe. ILIAS-Sync öffnet neue PDFs deshalb mit der GoodNotes-App auf dem Mac, GoodNotes übernimmt sie und synchronisiert sie per iCloud aufs iPad. Dafür brauchst du <strong>Goodnotes für Mac</strong>, das macOS 15.7 oder neuer voraussetzt, und die eingeschaltete iCloud-Synchronisierung in GoodNotes. Die Dateien landen ohne Fach-Ordner in GoodNotes; der vorhandene Bestand wird nicht importiert. Der Assistent bietet einen Test mit einer einzelnen Seite an.</p>
+        <p><strong>Zuverlässige Alternative:</strong> iCloud Drive als Zielordner wählen. Dann liegen alle Dateien sortiert auf dem iPad, und du holst sie in GoodNotes über „Importieren“ › iCloud Drive › ILIAS.</p>
+      </div>
+      <div>
+        <h3>Notion-To-do-Liste</h3>
+        <p>Jede neue Datei wird ein offener Eintrag in der Notion-Tabelle „ILIAS-Dokumente“: je Fach ein Tab, gruppiert nach Vorlesung, Übung, Tutorium, Klausur und Sonstiges, sortiert nach Upload-Datum. Nach dem Bearbeiten hakst du den Eintrag ab. Abhaken ändert nichts an deinen Dateien.</p>
+        <ul>
+          <li><a href="https://www.notion.so/profile/integrations">notion.so/profile/integrations</a> öffnen (führt zu den Entwicklertools) › Tab „Verbindungen“ › „Neue Verbindung“. Name „ILIAS-Sync“, Authentifizierung <strong>Zugriffstoken</strong>, dann den Token kopieren. Nimm kein „Persönliches Zugriffstoken“, das hätte Zugriff auf dein ganzes Notion.</li>
+          <li>Eine Seite anlegen, z. B. „Uni“, und sie der Verbindung freigeben: auf der Seite ••• › Verbindungen › ILIAS-Sync.</li>
+          <li>Im Assistenten oder mit <code>ilias-sync module</code> den Token einfügen. Die Tabelle entsteht unter deiner Seite.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Telegram-Nachrichten</h3>
+        <p>Eine Nachricht bei neuen Dateien (nach Fach sortiert) und bei Problemen, zum Beispiel wenn die Anmeldung scheitert. Dafür legst du einen eigenen Bot an: In Telegram den Chat mit <strong>@BotFather</strong> öffnen, <code>/newbot</code> schicken und den Schritten folgen. Den Token fügst du im Assistenten ein und schreibst deinem Bot danach einmal <code>/start</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Probleme lösen</h2>
+    <div class="faq">
+      <div>
+        <h3>„command not found: ilias-sync“</h3>
+        <p>Der Befehl funktioniert erst in einem neuen Terminal-Fenster (<kbd>⌘</kbd> + <kbd>N</kbd>).</p>
+      </div>
+      <div>
+        <h3>Ich habe bei der Ordner-Frage von macOS „Nicht erlauben“ gewählt</h3>
+        <p>Systemeinstellungen › Datenschutz &amp; Sicherheit › Dateien und Ordner: bei „python3.13“ den Schalter für deinen Ordner einschalten. Danach mit <code>ilias-sync jetzt</code> prüfen, ob der Abgleich wieder speichert.</p>
+      </div>
+      <div>
+        <h3>Ich habe den Assistenten abgebrochen</h3>
+        <p>Führe die Installationszeile einfach noch einmal aus, oder in einem neuen Terminal-Fenster <code>ilias-sync einrichten</code>. Deine bisherigen Angaben werden als Vorschlag übernommen.</p>
+      </div>
+      <div>
+        <h3>Mitteilung „ILIAS-Anmeldung fehlgeschlagen“</h3>
+        <p>Meist hast du dein Uni-Passwort geändert. Führe <code>ilias-sync zugang</code> aus und gib es neu ein.</p>
+      </div>
+      <div>
+        <h3>Warum brauchen die Dateien doppelt Platz?</h3>
+        <p>ILIAS-Sync lädt zuerst in einen eigenen Ordner auf dem Mac und kopiert von dort in deinen Zielordner. iCloud Drive und OneDrive lagern Dateien sonst auf „nur online“ aus, und der Hintergrund-Abgleich könnte sie nicht mehr lesen. Für ein Semester sind das meist unter 200 MB.</p>
+      </div>
+      <div>
+        <h3>Ein Kurs heißt nächstes Semester anders</h3>
+        <p>Neue Kurse übernimmt ILIAS-Sync automatisch mit einem Kurznamen und meldet sie. Mit <code>ilias-sync kurse</code> kannst du sie umbenennen oder abwählen.</p>
+      </div>
+      <div>
+        <h3>Wo sehe ich, was passiert ist?</h3>
+        <p><code>ilias-sync log</code> zeigt die letzten Abgleiche. Das ausführliche Protokoll liegt unter <code>~/Library/Logs/ILIAS-Sync.log</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Datenschutz</h2>
+    <ul>
+      <li>Dein Passwort liegt nur im macOS-Schlüsselbund und geht ausschließlich an den Login-Server der Uni (<code>idp.uni-mannheim.de</code>).</li>
+      <li>Deine Dateien bleiben auf deinem Mac und in dem Zielordner, den du wählst. Niemand sonst, auch nicht wer dir das Programm gegeben hat, bekommt Daten von dir.</li>
+      <li>Nur wenn du sie einschaltest, gehen Dateinamen an Notion oder Telegram. Dateiinhalte gehen dorthin nie.</li>
+      <li>ILIAS-Sync fragt schonend ab, eine Seite nach der anderen. Es ist ein inoffizielles Werkzeug, die Nutzung erfolgt auf eigene Verantwortung.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Aktualisieren und entfernen</h2>
+    <p><strong>Neue Version:</strong> die neue ZIP entpacken und die Installationszeile erneut ausführen. Deine Einstellungen bleiben erhalten.</p>
+    <p><strong>Entfernen:</strong> <code>ilias-sync deinstallieren</code> löscht das Programm, alle Einstellungen und die gespeicherten Zugangsdaten. Deine Dateien im Zielordner bleiben erhalten.</p>
+  </section>
+
+  <footer>
+    ILIAS-Sync ist ein inoffizielles Werkzeug von Studierenden für Studierende und steht in keiner Verbindung zur Universität Mannheim. Zum Herunterladen nutzt es den quelloffenen ILIAS-Downloader <a href="https://github.com/Garmelon/PFERD">PFERD</a>.
+  </footer>
+</main>
+
+<script>
+document.querySelectorAll(".copy").forEach(function (button) {
+  button.addEventListener("click", function () {
+    var text = button.getAttribute("data-copy");
+    var done = function () {
+      button.textContent = "Kopiert";
+      setTimeout(function () { button.textContent = "Kopieren"; }, 1600);
+    };
+    var selectFallback = function () {
+      var block = button.parentNode.querySelector(".term");
+      var range = document.createRange();
+      range.selectNodeContents(block);
+      var selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      button.textContent = "Markiert, ⌘C drücken";
+    };
+    try {
+      navigator.clipboard.writeText(text).then(done, selectFallback);
+    } catch (error) {
+      selectFallback();
+    }
+  });
+});
+</script>
+
+</body>
+</html>
