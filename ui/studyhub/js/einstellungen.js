@@ -1,7 +1,7 @@
 // =====================================================
 // StudyHub – Seiten „Kurse“ und „Einstellungen“
 //
-// Ersetzen die gleichnamigen Bereiche der klassischen Oberfläche im StudyHub-Design.
+// Kurse und Einstellungen der App im StudyHub-Design.
 // Sie sprechen dieselben Endpunkte an wie ui/app.js:
 //   /api/courses (Kurse an/aus, umbenennen), /api/settings, /api/account, /api/ai/providers,
 //   /api/telegram/connect|test|disconnect
@@ -230,8 +230,7 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
     const info = karte("Über die App", "uebersicht", `
       ${zeile("Version", esc(s.version), "")}
       ${zeile("Programmordner", esc(s.code_dir), "")}
-      ${zeile("Datenordner", esc(s.data_dir), "")}
-      <a class="link-leise" href="/?t=${encodeURIComponent(LIVE.token)}">Klassische Ansicht öffnen</a>`);
+      ${zeile("Datenordner", esc(s.data_dir), "")}`);
 
     return `<div class="einst-raster">${zugang}${abgleich}${ki}${tutorKarte}${weitergabe}${info}</div>`;
   });

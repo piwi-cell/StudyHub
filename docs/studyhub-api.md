@@ -68,10 +68,14 @@ Formeln enthalten nur `<sub>`/`<sup>`, Kernideen nur `<b>` und `<br>`.
 | Klausurtermin | `PATCH /api/studyhub/klausur` `{ kurs, datum: "JJJJ-MM-TT" \| null }`; Module tragen `klausur: { datum, tage } \| null`, `naechsteKlausur` = nächste künftige |
 | Eigene Zusammenfassung schreiben | `POST /api/summaries` `{ kurs, titel, text }` → Markdown unter `<Kurs>/Eigene Zusammenfassungen/`; Themen daraus tragen `eigene: true` |
 | Seite „Bibliotheken“ (`#/bibliotheken`) | `GET /api/libraries` → `{ stand, alterMinuten, taktMinuten, seit, messungen, jetzt: { wochentag, stunde }, wochentage, bereiche: [{ slug, name, url, info, aktuell: { prozent, plaetze, frei, stufe } \| null, offen, oeffnet, zeiten, typischJetzt, woche: [7 × 24 × { stunde, mittel, messungen }] }], hintergrund, quelle, intervallMinuten, alarmAbstand, demo, telegram: { verbunden, bot, alarm: { aktiv, schwelle, bereiche } } }`; „Jetzt messen“ `POST /api/libraries/refresh`; Hintergrund `PATCH /api/libraries/background` `{ aktiv }`; Telegram verbinden `POST /api/telegram/connect` `{ token, chat? }` (ohne `chat` wartet der Server bis zu 5 Min. auf eine Nachricht an den Bot); Meldungen „voll / wieder Platz“ `PATCH /api/libraries/alerts` `{ aktiv?, schwelle? (50–100), bereiche? (leer = alle) }`; Stand an Telegram `POST /api/libraries/telegram` (`server/libraries.py`, Bot-Befehle in `server/integrations.py`) |
-| „Modul aus ILIAS hinzufügen“ | Kurse in der klassischen Oberfläche (`/?t=…` → Kurse) |
+| „Modul aus ILIAS hinzufügen“ | Seite „Kurse“ (`#/kurse`, `/api/courses`) |
+| Suche oben | `GET /api/search?q=` → `{ treffer: [{ pfad, name, kurs, seite, ausschnitt }], ausstehend }`: erst Dateinamen, dann Textstellen (Volltextindex `tutor.index_all()` im Hintergrund, `<mark>` im Ausschnitt) |
+| Frage zu einem Dokument | `POST /api/ai/run` `{ path, task: "qa", question }`; Themen tragen `fragen: [{ frage, antwort }]` (neueste zuerst) |
+| Weitergeben, Finder | `POST /api/share` `{ path, task: "thema" \| "summary" \| "flashcards" \| "original", target }`, `POST /api/reveal` `{ path }` |
+| Skills (eigene Tabs) | `PATCH /api/studyhub/skills` `{ kurs, skills }`; `/api/studyhub` liefert `skills: { Kurs: [...] }` |
 
-Im App-Fenster gibt es kein Mikrofon (WebKit-Einschränkung von pywebview). Für Sprache den
-Tutor im Browser öffnen: `POST /api/tutor/open-browser`.
+Im App-Fenster gibt es kein Mikrofon (WebKit-Einschränkung von pywebview). Für Sprache StudyHub
+im Browser öffnen: `POST /api/studyhub/open-browser` `{ hash }`.
 
 ## Eigene Dateien hochladen
 

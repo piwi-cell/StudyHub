@@ -342,6 +342,28 @@ LIVE.klick = async function (ds) {
       api("/api/open", { method: "POST", body: { path: LIVE.pfade[ds.id] } }).catch((f) => zeigeToast(f.message));
       break;
 
+    case "live-suche-oeffnen":
+      sucheSchliessen();
+      zeigeToast("Wird in der Vorschau geöffnet …");
+      api("/api/open", { method: "POST", body: { path: ds.pfad } }).catch((f) => zeigeToast(f.message));
+      break;
+
+    case "live-finder":
+      api("/api/reveal", { method: "POST", body: { path: LIVE.pfade[ds.id] } }).catch((f) => zeigeToast(f.message));
+      break;
+
+    case "live-teilen": {
+      const ziel = ds.ziel === "telegram" ? "Telegram" : "reMarkable";
+      zeigeToast(`Wird an ${ziel} geschickt …`);
+      try {
+        const r = await api("/api/share", { method: "POST", body: { path: LIVE.pfade[ds.id], task: ds.aufgabe, target: ds.ziel } });
+        zeigeToast(`An ${ziel} geschickt${r.via && r.via !== ziel ? ` (${r.via})` : ""}`);
+      } catch (fehler) {
+        zeigeToast(fehler.message);
+      }
+      break;
+    }
+
     case "live-thema-erstellen":
       if (await kiAusfuehren(ds.modul, ds.id, "thema")) zeigeToast("Lernthema fertig");
       break;
@@ -656,6 +678,8 @@ LIVE.tabZusammenfassung = function (m, d) {
   const themaLaedt = laedt("thema", t.dateiId);
   const kartenLaedt = laedt("flashcards", t.dateiId);
   const hatKarten = d.karten.liste.some((k) => k.lernplan === t.dateiId);
+  const frageLaedt = laedt("frage", t.dateiId);
+  const zfAufgabe = t.strukturiert ? "thema" : "summary"; // was als „Zusammenfassung“ weitergegeben wird
 
   const kern = themaLaedt
     ? `<div class="schimmer" aria-label="KI arbeitet"><span></span><span></span><span></span></div>`
@@ -702,8 +726,30 @@ LIVE.tabZusammenfassung = function (m, d) {
             <button class="knopf-hell" data-aktion="live-thema-erstellen" data-modul="${m.id}" data-id="${t.dateiId}">${icon("funken", 16)} Als Lernthema aufbereiten</button>
           </div>` : ""}
 
+        <section class="zf-abschnitt">
+          <h3 class="mini-titel">Frage zu diesem Dokument</h3>
+          <form class="frage-form" data-form="live-frage" data-modul="${m.id}" data-id="${t.dateiId}">
+            <input class="eingabe" name="frage" maxlength="500" autocomplete="off" data-fokus="frage-${t.dateiId}"
+              placeholder="z. B. „Was ist der Unterschied zwischen … und …?“" ${frageLaedt ? "disabled" : ""}>
+            <button class="knopf-hell" ${frageLaedt || themaLaedt ? "disabled" : ""}>${icon(frageLaedt ? "sync" : "funken", 16)} ${frageLaedt ? "KI liest …" : "Fragen"}</button>
+          </form>
+          ${t.fragen.map((q, i) => `
+            <details class="frage-antwort" ${i === 0 ? "open" : ""}>
+              <summary>${q.frage}</summary>
+              <p class="zf-text">${q.antwort}</p>
+            </details>`).join("")}
+        </section>
+
         <p class="quelle">${icon("dokument", 14)} Quelle: ${t.quelle} ·
-          <button class="link-leise" data-aktion="live-dokument" data-id="${t.dateiId}">Original öffnen</button></p>
+          <button class="link-leise" data-aktion="live-dokument" data-id="${t.dateiId}">Original öffnen</button> ·
+          <button class="link-leise" data-aktion="live-finder" data-id="${t.dateiId}">Im Finder zeigen</button></p>
+        ${t.eigene ? "" : `
+          <p class="quelle">${icon("pfeil", 14)} Weitergeben:
+            <button class="link-leise" data-aktion="live-teilen" data-id="${t.dateiId}" data-aufgabe="${zfAufgabe}" data-ziel="telegram">Zusammenfassung an Telegram</button>
+            ${hatKarten ? `· <button class="link-leise" data-aktion="live-teilen" data-id="${t.dateiId}" data-aufgabe="flashcards" data-ziel="telegram">Karten an Telegram</button>` : ""}
+            · <button class="link-leise" data-aktion="live-teilen" data-id="${t.dateiId}" data-aufgabe="${zfAufgabe}" data-ziel="remarkable">Zusammenfassung ans reMarkable</button>
+            ${/\.pdf$/i.test(t.pfad) ? `· <button class="link-leise" data-aktion="live-teilen" data-id="${t.dateiId}" data-aufgabe="original" data-ziel="remarkable">PDF ans reMarkable</button>` : ""}
+          </p>`}
       </article>
     </div>`;
 };
@@ -835,7 +881,7 @@ async function tutorStatusLaden() {
 // ---------- Gesprächsmodus mit dem ElevenLabs Agent ----------
 // Der Agent führt das Gespräch frei und bewertet selbst. Er holt Fragen und speichert Ergebnisse
 // über zwei Client-Tools, die im Browser laufen und nur mit unserer lokalen API sprechen.
-// Gleiche Logik wie ui/tutor.js (siehe docs/tutor/INTEGRATION.md).
+// Siehe docs/tutor/INTEGRATION.md.
 
 const ELEVENLABS_SDK = "/ui/vendor/elevenlabs-client-1.27.0/elevenlabs-client.js";
 
@@ -1162,7 +1208,73 @@ document.addEventListener("pointerdown", (e) => {
 });
 document.addEventListener("pointerup", aufnahmeStopp);
 
+// Frage zu einem Dokument (KI-Aufgabe „qa“); die Antwort erscheint im Lernthema unter der Frage
+LIVE.frageStellen = async function (modulId, dateiId, frage) {
+  if (!frage.trim() || LIVE.laedt) return;
+  const pfad = LIVE.pfade[dateiId];
+  LIVE.laedt = `frage-${dateiId}`;
+  neuZeichnen();
+  try {
+    await api("/api/ai/run", { method: "POST", body: { path: pfad, task: "qa", question: frage.trim() } });
+    await LIVE.laden();
+    const thema = MODUL_DETAILS[modulId].themen.find((t) => t.pfad === pfad);
+    if (thema) zustand.thema[modulId] = thema.nr;
+  } catch (fehler) {
+    zeigeToast(`KI: ${fehler.message}`);
+  } finally {
+    LIVE.laedt = null;
+    neuZeichnen();
+  }
+};
+
+// ---------- Suche oben (GET /api/search): Dateinamen und Text der Unterlagen ----------
+
+let suchTimer = null;
+let suchLauf = 0;
+
+function sucheSchliessen() {
+  const liste = $("#such-ergebnisse");
+  if (liste) liste.hidden = true;
+}
+
+async function suchen(text) {
+  const liste = $("#such-ergebnisse");
+  if (text.trim().length < 2) return sucheSchliessen();
+  const zeigen = (html) => { liste.innerHTML = html; liste.hidden = false; };
+  if (!LIVE.aktiv) return zeigen('<p class="klein such-hinweis">Die Suche gibt es in der laufenden App.</p>');
+  const lauf = ++suchLauf;
+  try {
+    const r = await api(`/api/search?q=${encodeURIComponent(text.trim())}`);
+    if (lauf !== suchLauf) return; // inzwischen weitergetippt
+    const treffer = r.treffer.map((h) => `
+      <button class="such-treffer" role="option" data-aktion="live-suche-oeffnen" data-pfad="${esc(h.pfad)}">
+        <span class="zeile-titel">${h.name}${h.seite ? ` · S. ${h.seite}` : ""}</span>
+        <span class="mini">${h.kurs}</span>
+        ${h.ausschnitt ? `<span class="klein such-ausschnitt">${h.ausschnitt}</span>` : ""}
+      </button>`).join("");
+    const hinweis = r.ausstehend
+      ? `<p class="mini such-hinweis">${anzahl(r.ausstehend, "Datei wird", "Dateien werden")} noch für die Suche vorbereitet.</p>` : "";
+    zeigen((treffer || '<p class="klein such-hinweis">Nichts gefunden.</p>') + hinweis);
+  } catch (fehler) {
+    zeigen(`<p class="klein such-hinweis">${esc(fehler.message)}</p>`);
+  }
+}
+
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "suche") return;
+  clearTimeout(suchTimer);
+  suchTimer = setTimeout(() => suchen(e.target.value), 250);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") sucheSchliessen(); });
+document.addEventListener("click", (e) => { if (!e.target.closest(".suche-rahmen")) sucheSchliessen(); });
+
 document.addEventListener("submit", (e) => {
+  const frage = e.target.closest('[data-form="live-frage"]');
+  if (frage) {
+    e.preventDefault();
+    LIVE.frageStellen(frage.dataset.modul, frage.dataset.id, frage.elements.frage.value);
+    return;
+  }
   const form = e.target.closest('[data-form="live-tutor"]');
   if (!form) return;
   e.preventDefault();

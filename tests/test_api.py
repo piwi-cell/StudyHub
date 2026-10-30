@@ -255,3 +255,73 @@ def test_reveal_only_shows_files_from_the_mirror(client, monkeypatch):
 def test_ui_files_are_revalidated_after_updates(client):
     answer = client.get("/ui/studyhub/js/app.js")
     assert answer.status_code == 200 and answer.headers["cache-control"] == "no-cache"
+
+
+def test_start_page_is_studyhub(client):
+    answer = client.get("/?t=abc", follow_redirects=False)
+    assert answer.status_code == 307 and answer.headers["location"] == "/ui/studyhub/index.html?t=abc"
+    assert not (app_module.UI_DIR / "index.html").exists()  # klassische Ansicht entfernt
+
+
+def test_search_finds_file_names_and_text_but_not_hidden_files(client):
+    import studyhub
+    import tutor
+
+    text = "Beim Hypothesentest prüft man die Nullhypothese <H0> gegen die Alternative. " * 5
+    (core.MIRROR_DIR / "Statistik/Vorlesung/07 Tests.txt").write_text(text, encoding="utf-8")
+    other = core.MIRROR_DIR / "Statistik/Übung/Blatt 3 Hypothesen.md"
+    other.parent.mkdir(parents=True)
+    other.write_text("Aufgabe 1: Konfidenzintervall berechnen. " * 10, encoding="utf-8")
+    files = [(p, core.nfc(p.relative_to(core.MIRROR_DIR).as_posix())) for p in app_module.mirror_files()]
+    assert client.get("/api/search?q=Nullhyp", headers=AUTH).json()["ausstehend"] == 2
+    assert tutor.index_all(files) == 2 and tutor.index_all(files) == 0  # unverändert: nicht noch einmal
+
+    result = client.get("/api/search?q=Nullhyp", headers=AUTH).json()
+    assert result["ausstehend"] == 0
+    hit = result["treffer"][0]
+    assert hit["pfad"] == "Statistik/Vorlesung/07 Tests.txt" and hit["seite"] == 1
+    assert "<mark>Nullhypothese</mark>" in hit["ausschnitt"] and "&lt;H0&gt;" in hit["ausschnitt"]
+    names = client.get("/api/search?q=blatt hypo", headers=AUTH).json()["treffer"]
+    assert names[0]["name"] == "Blatt 3 Hypothesen.md" and names[0]["seite"] is None
+    assert client.get("/api/search?q=x", headers=AUTH).json()["treffer"] == []
+
+    studyhub.set_hidden("Statistik/Vorlesung/07 Tests.txt", True)
+    assert client.get("/api/search?q=Nullhyp", headers=AUTH).json()["treffer"] == []
+
+
+def test_share_learning_topic_and_original(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr(integrations, "send_telegram", lambda title, task, output: sent.append((title, task, output)))
+    path = "Statistik/Vorlesung/07 Tests.txt"
+    body = {"path": path, "task": "thema", "target": "telegram"}
+    assert "Noch kein Ergebnis" in client.post("/api/share", json=body, headers=AUTH).json()["detail"]
+
+    entry = ai.load_entry(core.MIRROR_DIR / path)
+    entry["thema"] = {"output": {"titel": "Tests", "kernidee": "Man prüft eine Annahme.", "einfacher": "",
+                                 "formeln": [], "falle": "p-Wert falsch deuten", "seite": 2}, "created": 1}
+    ai.save_entry(entry, path)
+    assert "nicht verbunden" in client.post("/api/share", json=body, headers=AUTH).json()["detail"]
+    config = core.load_config()
+    config["telegram"] = True
+    core.save_config(config)
+    assert client.post("/api/share", json=body, headers=AUTH).json() == {"ok": True, "via": "Telegram"}
+    title, task, output = sent[0]
+    assert title == "07 Tests" and task == "summary" and output.startswith("## Worum es geht\nMan prüft eine Annahme.")
+    assert "S. 2" in output and "Klausurfalle: p-Wert" in output
+
+    original = {"path": path, "task": "original", "target": "remarkable"}
+    assert client.post("/api/share", json=original, headers=AUTH).json()["detail"] == "Ans reMarkable gehen nur PDFs"
+    assert client.post("/api/share", json={**body, "task": "alles"}, headers=AUTH).status_code == 422
+
+
+def test_questions_about_a_document_appear_in_its_topic(client, monkeypatch):
+    path = "Statistik/Vorlesung/07 Tests.txt"
+    (core.MIRROR_DIR / path).write_text("Hypothesentests prüfen eine Annahme anhand von Daten. " * 10, encoding="utf-8")
+    monkeypatch.setattr(ai, "_claude", lambda pages, p, task, instruction, model: (
+        "**H0** ist die Nullhypothese." if task == "qa" else "## Worum es geht\nTests.", {"provider": "claude"}))
+    monkeypatch.setattr(ai, "has_profile", lambda: True)
+    for task, question in (("summary", ""), ("qa", "Was ist <H0>?")):
+        assert client.post("/api/ai/run", json={"path": path, "task": task, "question": question,
+                                                "provider": "claude"}, headers=AUTH).status_code == 200
+    thema = client.get("/api/studyhub", headers=AUTH).json()["details"]["statistik"]["themen"][0]
+    assert thema["fragen"] == [{"frage": "Was ist &lt;H0&gt;?", "antwort": "<b>H0</b> ist die Nullhypothese."}]

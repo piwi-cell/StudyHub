@@ -517,6 +517,50 @@ def record(question_id: int, answer: str, verdict: str | None, feedback: str | N
     return {"verdict": verdict, "feedback": feedback, "solution": q["answer"], "source": _source(q)}
 
 
+def index_all(files: list[tuple[Path, str]], stop=lambda: False) -> int:
+    """Text aller Dateien in die Volltextsuche (Suche in StudyHub), auch ohne Gemma. Unlesbare oder gescannte
+    Dateien bleiben bis zur nächsten Änderung übersprungen. Liefert die Zahl neu aufgenommener Dateien."""
+    with closing(connect()) as db:
+        known = {r["path"]: r["hash"] for r in db.execute("SELECT path, hash FROM files")}
+        skipped = {r["path"]: r["hash"] for r in db.execute("SELECT path, hash FROM skipped")}
+        added = 0
+        for path, relative in files:
+            if stop():
+                break
+            if path.suffix.lower() not in EXTENSIONS or not path.is_file():
+                continue
+            digest = _hash(path, relative)
+            if digest in (known.get(relative), skipped.get(relative)):
+                continue
+            try:
+                added += index_file(db, path, relative)
+            except TutorError as error:
+                with db:
+                    db.execute("INSERT OR REPLACE INTO skipped (path, hash, reason) VALUES (?, ?, ?)",
+                               (relative, digest, str(error)))
+    return added
+
+
+def search_material(text: str, limit: int = 20) -> list[dict]:
+    """Suche in StudyHub: Seiten, die alle Wörter (auch als Wortanfang) enthalten, beste zuerst.
+    Im Ausschnitt markieren \x02 und \x03 die Treffer."""
+    words = re.findall(r"\w{2,}", text.lower())[:8]
+    if not words:
+        return []
+    query = " ".join(f'"{w}"*' for w in words)
+    with closing(connect()) as db:
+        rows = db.execute("SELECT path, page, snippet(pages, 3, char(2), char(3), ' … ', 14) AS snippet FROM pages "
+                          "WHERE pages MATCH ? ORDER BY rank LIMIT ?", (query, limit)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def index_count() -> int:
+    """Dateien, die die Suche schon kennt: aufgenommen oder als unlesbar bzw. gescannt übersprungen."""
+    with closing(connect()) as db:
+        return db.execute("SELECT (SELECT COUNT(*) FROM files) + (SELECT COUNT(*) FROM skipped "
+                          "WHERE path NOT IN (SELECT path FROM files))").fetchone()[0]
+
+
 def search(db: sqlite3.Connection, text: str, course: str | None = None, limit: int = 4) -> list[sqlite3.Row]:
     """Volltextsuche über das Material. Wörter werden einzeln gesucht (ODER), bestes Ergebnis zuerst."""
     words = [w for w in re.findall(r"\w{3,}", text.lower())][:12]

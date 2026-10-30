@@ -403,6 +403,20 @@ def save_entry(entry: dict, relative: str) -> None:
     core.save_json(_cache_file(entry["hash"]), entry)
 
 
+def thema_markdown(thema: dict) -> str:
+    """Lernthema als Markdown-Zusammenfassung (Claude Desktop speichert sie mit; Teilen an Telegram/reMarkable)."""
+    points = [f"- Einfach erklärt: {thema['einfacher']}"] if thema.get("einfacher") else []
+    if thema.get("seite"):
+        points.append(f"- Das Wichtigste steht auf S. {thema['seite']}.")
+    lines = ["## Worum es geht", thema.get("kernidee", ""), ""]
+    lines += ["## Kernaussagen", *points, ""] if points else []
+    if thema.get("formeln"):
+        lines += ["## Wichtige Begriffe", *[f"- **{f['name']}**: {f['text']}" for f in thema["formeln"]], ""]
+    if thema.get("falle"):
+        lines += ["## Prüfungsrelevant", f"- Typische Klausurfalle: {thema['falle']}"]
+    return "\n".join(lines).strip()
+
+
 def rename_folder(old: str, new: str) -> int:
     """Kursordner umbenannt: gespeicherte Pfade der Ergebnisse mitziehen (StudyHub findet sie über den Pfad)."""
     moved = 0

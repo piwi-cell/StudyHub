@@ -26,7 +26,7 @@ import fcntl  # noqa: E402
 
 import keyring  # noqa: E402
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile  # noqa: E402
-from fastapi.responses import FileResponse, HTMLResponse, Response  # noqa: E402
+from fastapi.responses import FileResponse, RedirectResponse, Response  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
 
@@ -66,6 +66,10 @@ def tutor_auto_worker() -> None:
     while not _stopping.is_set():
         _tutor_wake.clear()
         try:
+            if not sync_running():  # Volltext für die Suche, unabhängig von Gemma
+                files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()]
+                if added := tutor.index_all(files, stop=_stopping.is_set):
+                    core.log(f"Suche: {added} Dateien durchsuchbar gemacht")
             gemma = ai.providers()["gemma"]
             if not core.load_config().get("tutor_auto", True):
                 tutor.progress["error"] = ""
@@ -211,9 +215,11 @@ def log_tail(lines: int = 60) -> list[str]:
 # --- Seiten -------------------------------------------------------------------
 
 
-@app.get("/", response_class=HTMLResponse)
-def index() -> str:
-    return (UI_DIR / "index.html").read_text(encoding="utf-8")
+@app.get("/")
+def index(request: Request) -> RedirectResponse:
+    """Die Oberfläche ist StudyHub (die frühere klassische Ansicht gibt es nicht mehr)."""
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"/ui/studyhub/index.html{query}")
 
 
 class UIFiles(StaticFiles):
@@ -403,6 +409,15 @@ def ai_usage(month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$")) -> dict:
     return ai.usage(month)
 
 
+@app.get("/api/search", dependencies=[api])
+def search(q: str = Query("", max_length=200)) -> dict:
+    """Suche oben in StudyHub: Dateinamen und Text der Unterlagen (Volltextindex, im Hintergrund aufgebaut)."""
+    files = list_files()["files"]
+    readable = sum(1 for f in files if "." + f["ext"] in tutor.EXTENSIONS)
+    return {"treffer": studyhub.search_hits(q, files, tutor.search_material(q)),
+            "ausstehend": max(0, readable - tutor.index_count())}
+
+
 @app.get("/api/ai/result", dependencies=[api])
 def ai_result(path: str) -> dict:
     entry = ai.load_entry(mirror_path(path))
@@ -429,27 +444,10 @@ def ai_run(body: AIRequest) -> dict:
         raise HTTPException(400, str(error)) from None
 
 
-@app.get("/api/learn", dependencies=[api])
-def learn() -> dict:
-    items = []
-    for entry in ai.all_entries():
-        if not entry.get("path"):
-            continue
-        items.append({
-            "path": entry["path"],
-            "name": entry["path"].rsplit("/", 1)[-1],
-            "course": entry["path"].split("/", 1)[0],
-            "summary": entry.get("summary"),
-            "flashcards": entry.get("flashcards"),
-            "qa": len(entry.get("qa", [])),
-        })
-    return {"items": items}
-
-
 class ShareRequest(BaseModel):
     path: str
-    task: str  # summary | flashcards | original
-    target: str  # telegram | remarkable
+    task: Literal["summary", "thema", "flashcards", "original"]
+    target: Literal["telegram", "remarkable"]
 
 
 @app.post("/api/share", dependencies=[api])
@@ -459,10 +457,14 @@ def share(body: ShareRequest) -> dict:
         if body.task == "original":
             if body.target != "remarkable":
                 raise HTTPException(400, "Originaldateien gehen nur ans reMarkable")
+            if file.suffix.lower() != ".pdf":
+                raise HTTPException(400, "Ans reMarkable gehen nur PDFs")
             return {"ok": True, "via": integrations.send_remarkable(file)}
         result = ai.load_entry(file).get(body.task)
         if not result:
             raise HTTPException(400, "Noch kein Ergebnis vorhanden")
+        if body.task == "thema":  # Lernthema wie eine Zusammenfassung weitergeben
+            result, body.task = {"output": ai.thema_markdown(result["output"])}, "summary"
         if body.target == "telegram":
             if not core.load_config()["telegram"]:
                 raise HTTPException(400, "Telegram ist nicht verbunden (Einstellungen › Telegram)")
@@ -878,13 +880,6 @@ def tutor_agent_session(body: TutorAgentSession) -> dict:
     return {"signed_url": url, "prompt": tutor.AGENT_PROMPT, "first_message": tutor.AGENT_FIRST_MESSAGE,
             "dynamic_variables": {"course": body.course or "allen deinen Kursen"}}
 
-
-@app.post("/api/tutor/open-browser", dependencies=[api])
-def tutor_open_browser(request: Request) -> dict:
-    """Das native Fenster darf nicht aufs Mikrofon zugreifen: Tutor im Standardbrowser öffnen."""
-    url = f"{str(request.base_url).rstrip('/')}/?t={TOKEN}#tutor"
-    subprocess.run(["open", url], check=False)
-    return {"ok": True}
 
 
 # --- StudyHub (neue Oberfläche) -------------------------------------------------

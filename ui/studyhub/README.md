@@ -1,14 +1,13 @@
-# StudyHub – Design-Prototyp (Soft Glass)
+# StudyHub – Oberfläche (Soft Glass)
 
-Klickbarer Prototyp für das Demo-Video. Läuft komplett mit Beispieldaten,
-ohne Server und ohne Build-Schritt.
+Die einzige Oberfläche der App (die frühere klassische Ansicht ist entfernt). Ohne Server läuft sie
+mit Beispieldaten, ohne Build-Schritt.
 
 ## Öffnen
 
 - **Nur Design (Beispieldaten):** Doppelklick auf `index.html`.
-- **Mit echten Daten:** App starten (`.venv/bin/python main.py --demo --browser` oder ohne `--demo`),
-  dann in der klassischen Ansicht links unten auf **„✦ Neue Oberfläche: StudyHub“** klicken.
-  StudyHub läuft dann unter `/ui/studyhub/index.html?t=<Sitzungs-Token>`.
+- **Mit echten Daten:** App starten (`.venv/bin/python main.py --demo --browser` oder ohne `--demo`).
+  StudyHub läuft unter `/ui/studyhub/index.html?t=<Sitzungs-Token>`; `/` leitet dorthin weiter.
 
 ## Echte Daten (`js/live.js`)
 
@@ -19,11 +18,14 @@ Mit Sitzungs-Token holt StudyHub alles aus der lokalen API (`server/app.py`, For
 | Register, Module, Startseite, alle Tabs | `GET /api/studyhub` (ersetzt `DATEN` und `MODUL_DETAILS`) |
 | Lernplan-Status und Notizen: bei echten Kursen im Tab „Dokumente“ (Haken = erledigt, Chip für „in Arbeit“ / „nochmal üben“); ein eigener Tab „Lernplan“ nur im Beispielmodul | `PATCH /api/studyhub/lernplan` (gespeichert auf dem Server) |
 | Top-Bar: Synchronisieren | `/api/sync`, danach `/api/status` bis fertig (im Demo-Modus nur simuliert) |
-| Dokumente öffnen | `/api/open` |
+| Dokumente öffnen, im Finder zeigen | `/api/open`, `/api/reveal` |
+| Suche oben (Dateinamen und Text) | `GET /api/search?q=` → `{ treffer: [{ pfad, name, kurs, seite, ausschnitt }], ausstehend }` |
+| Frage zu einem Dokument (im Lernthema) | `/api/ai/run` mit `task: "qa"`, `question`; Antworten in `themen[].fragen` |
+| Weitergeben (im Lernthema) | `POST /api/share` `{ path, task: "thema" \| "summary" \| "flashcards" \| "original", target: "telegram" \| "remarkable" }` |
 | Lernthema (Kernidee, Formeln, Klausurfalle, Einfacher erklären) | `/api/ai/run` mit `task: "thema"` |
 | Karteikarten erstellen | `/api/ai/run` mit `task: "flashcards"` |
 | Sprachtutor „Frage für Frage“ | `/api/tutor/*` inkl. ElevenLabs (Vorlesen, Push-to-Talk) |
-| Sprachtutor „Gespräch mit dem Tutor“ | ElevenLabs Agent über `/api/tutor/agent-session` und das SDK in `ui/vendor/`, Client-Tools `get_next_question` / `record_result` wie in `ui/tutor.js` |
+| Sprachtutor „Gespräch mit dem Tutor“ | ElevenLabs Agent über `/api/tutor/agent-session` und das SDK in `ui/vendor/`, Client-Tools `get_next_question` / `record_result` (`js/live.js`) |
 | Top-Bar: „✦ Claude“ (Lerncoach in Claude Desktop über den MCP-Server) | `POST /api/claude/open` |
 | Karteikarten mit Lernstand (SM-2), Anki, Textdateien | `/api/cards/*`, `/api/anki/*` |
 | Klausurtermin im Modulkopf | `PATCH /api/studyhub/klausur` |
@@ -66,5 +68,4 @@ Das Mikrofon geht nur im Browser, nicht im nativen App-Fenster.
 | `js/einstellungen.js` | Seiten „Kurse“ und „Einstellungen“ im StudyHub-Design |
 | `js/app.js` | Seiten, Tabs, Navigation (`#/modul/fima/uebersicht`) und Klicks |
 
-Bereich: Oberfläche. In der klassischen Oberfläche kommt nur der Link zu StudyHub dazu
-(`ui/index.html`, `ui/app.js`, `ui/style.css`). Server und Kern bleiben unverändert.
+Bereich: Oberfläche.
