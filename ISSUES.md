@@ -152,7 +152,7 @@ Ziel: Andere Studierende (Mac) können die App ohne Entwicklerwerkzeuge installi
   Cache der Oberfläche, Python 3.13–3.14
 - [x] A2 StudyHub einzige Oberfläche: Suche (Dateinamen und Text), Frage zum Dokument, Weitergeben an
   Telegram/reMarkable, Im Finder zeigen; klassische Ansicht entfernt (Version 1.2.0)
-- [ ] A3 Anleitung „Was StudyHub kann“ (Lernplan, Karteikarten, Tutor, Bibliotheken, Suche, Weitergeben …)
+- [x] A3 Anleitung „Was StudyHub kann“ (Lernplan, Karteikarten, Tutor, Bibliotheken, Suche, Weitergeben …)
 - [ ] Später: „Heute dran“ nach Klausurtermin, Probeklausur für echte Kurse, Formeln (KaTeX, neue Abhängigkeit),
   Erinnerung an fällige Karten per Telegram, Zusammenfassung als PDF, Frage zu Dokumenten ohne Lernthema
 
