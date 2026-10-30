@@ -103,15 +103,8 @@ def _result(output, **extra) -> dict:
 
 
 def summary_from_thema(thema: dict) -> str:
-    """Lernthema als Markdown-Zusammenfassung mit den Abschnitten, die StudyHub (live.js) heute liest."""
-    points = [f"- Einfach erklärt: {thema['einfacher']}"]
-    if thema["seite"]:
-        points.append(f"- Das Wichtigste steht auf S. {thema['seite']}.")
-    lines = ["## Worum es geht", thema["kernidee"], "", "## Kernaussagen", *points, ""]
-    if thema["formeln"]:
-        lines += ["## Wichtige Begriffe", *[f"- **{f['name']}**: {f['text']}" for f in thema["formeln"]], ""]
-    lines += ["## Prüfungsrelevant", f"- Typische Klausurfalle: {thema['falle']}"]
-    return "\n".join(lines)
+    """Lernthema als Markdown-Zusammenfassung (siehe ai.thema_markdown)."""
+    return ai.thema_markdown(thema)
 
 
 def _store(path: str, task: str, output: dict, overwrite: bool) -> dict:
@@ -368,7 +361,7 @@ def save_summary(
     Aufbau mit diesen Überschriften, die StudyHub auswertet: „## Worum es geht“ (2–3 Sätze), „## Kernaussagen“
     (Stichpunkte), „## Wichtige Begriffe“ (je Zeile „- **Begriff**: Erklärung“, landet auch im Glossar),
     „## Prüfungsrelevant“ (Stichpunkte). Weitere Abschnitte (z. B. Beispiele, Rechenwege) sind erlaubt: Sie
-    erscheinen in der klassischen Ansicht, bei Telegram und auf dem reMarkable. StudyHub zeigt die
+    erscheinen bei Telegram und auf dem reMarkable (Weitergeben im Lernthema). StudyHub zeigt die
     Zusammenfassung, solange es für die Datei kein Lernthema gibt. Höchstens 30.000 Zeichen."""
     return _store(path, "summary", markdown.strip(), overwrite)
 

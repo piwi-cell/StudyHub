@@ -1,7 +1,7 @@
 // =====================================================
 // StudyHub – Einrichtung „Mit Uni-Login verbinden“ (#/einrichtung)
 //
-// Ersetzt den Einrichtungs-Assistenten der klassischen Oberfläche im StudyHub-Design:
+// Einrichtungs-Assistent beim ersten Start:
 //   1. Mit Uni-ID und Passwort bei ILIAS anmelden   (POST /api/account)
 //   2. Kurse auswählen                              (PATCH /api/courses, wie auf der Seite „Kurse“)
 //   3. KI wählen (optional), mit Hinweis, was dabei den Mac verlässt (PATCH /api/settings)

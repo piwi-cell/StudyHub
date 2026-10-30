@@ -98,7 +98,7 @@ Tests und Lint (laufen auch in der CI):
 | `server/studyhub.py` | Daten für die neue Oberfläche StudyHub im Format der Mock-Daten (siehe `docs/studyhub-api.md`) |
 | `server/uploads.py` | Eigene Dateien hochladen (StudyHub › Dokumente), Ablage unter `<Kurs>/Eigene Dateien/` |
 | `server/integrations.py` | Telegram-Versand, reMarkable (USB oder Desktop-App), Text→PDF |
-| `ui/` | Oberfläche im macOS-Stil (HTML/CSS/JS ohne Framework, Dark Mode) |
+| `ui/studyhub/` | Oberfläche StudyHub (HTML/CSS/JS ohne Framework, Dark Mode); `ui/vendor/` ElevenLabs-Client |
 | `main.py` | startet Server und natives Fenster (pywebview/WebKit) |
 | `scripts/demo_data.py` | Beispielkurse und -PDFs für die Demo |
 | `scripts/setup.sh` | Entwicklungsumgebung einrichten (`--app`: ohne Test-Werkzeuge) |

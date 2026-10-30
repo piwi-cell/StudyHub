@@ -1,6 +1,6 @@
 [project]
 name = "studyhub"
-version = "1.1.0"
+version = "1.2.0"
 description = "Mac-App: ILIAS-Dateien automatisch laden und mit KI zum Lernen aufbereiten"
 requires-python = ">=3.13,<3.15"  # neuere Python-Versionen erst nach Test (Pakete wie pyobjc)
 dependencies = [

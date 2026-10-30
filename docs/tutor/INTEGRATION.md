@@ -1,5 +1,8 @@
 # Study-Tutor: Integration
 
+> Stand 1.2: Die klassische Ansicht (`ui/index.html`, `ui/app.js`, `ui/tutor.js`, `ui/style.css`) ist entfernt.
+> Der Tutor steckt in StudyHub (`ui/studyhub/js/live.js`); die Tabellen unten beschreiben die Entstehung.
+
 Basisversion des „Sprechenden Study-Tutors“ aus `docs/voice-tutor-prompt.md`, angepasst an
 den Hackathon-Stand (macOS, `core/` + `server/` + `ui/` statt `src/`).
 
@@ -97,7 +100,7 @@ den Hackathon-Stand (macOS, `core/` + `server/` + `ui/` statt `src/`).
 | POST | `/api/tutor/chat` `{text, history, course, question_id}` | ein Beitrag im freien Lerngespräch |
 | POST | `/api/tutor/record` `{question_id, answer, verdict, feedback}` | Bewertung des Agents speichern |
 | POST | `/api/tutor/agent-session` `{course}` | Signed URL, Prompt, erste Nachricht, Dynamic Variables |
-| POST | `/api/tutor/open-browser` | Tutor im Standardbrowser öffnen |
+| POST | `/api/studyhub/open-browser` `{hash}` | StudyHub (Sprachtutor) im Standardbrowser öffnen |
 
 ## Ein- und ausschalten
 

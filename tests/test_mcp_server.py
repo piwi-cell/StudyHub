@@ -103,9 +103,9 @@ def test_save_thema_appears_in_studyhub():
     assert entry["thema"]["output"] == {k: v for k, v in THEMA.items() if k != "path"}
     assert set(entry["thema"]["output"]) == set(ai.THEMA_SCHEMA["properties"])
 
-    # Die heutige StudyHub-Oberfläche liest die Markdown-Zusammenfassung aus /api/learn
-    learn = TestClient(app).get("/api/learn", headers=AUTH).json()["items"][0]
-    assert learn["path"] == PATH and learn["summary"]["from_thema"] is True
+    # Zum Lernthema gehört eine Markdown-Zusammenfassung (Telegram, reMarkable, StudyHub ohne Lernthema)
+    learn = TestClient(app).get(f"/api/ai/result?path={PATH}", headers=AUTH).json()
+    assert learn["summary"]["from_thema"] is True
     markdown = learn["summary"]["output"]
     assert markdown.startswith("## Worum es geht\nMan prüft eine Annahme mit Daten.")
     assert "- **Teststatistik**: z = (x̄ − μ_0) / (σ/√n)" in markdown and "Klausurfalle: p-Wert" in markdown

@@ -19,11 +19,15 @@
         <span class="demo-marke" title="Mit --demo gestartet: Beispieldaten, kein ILIAS-Abruf">DEMO</span>
       </a>
 
-      <label class="suche glas-stark">
-        <span data-icon="suche"></span>
-        <input type="search" id="suche" placeholder="In allen Dokumenten suchen" aria-label="In allen Dokumenten suchen">
-        <kbd>⌘K</kbd>
-      </label>
+      <div class="suche-rahmen">
+        <label class="suche glas-stark">
+          <span data-icon="suche"></span>
+          <input type="search" id="suche" placeholder="In allen Dokumenten suchen" aria-label="In allen Dokumenten suchen"
+            autocomplete="off" aria-controls="such-ergebnisse">
+          <kbd>⌘K</kbd>
+        </label>
+        <div class="such-liste glas-stark" id="such-ergebnisse" role="listbox" aria-label="Suchergebnisse" hidden></div>
+      </div>
 
       <div class="topbar-rechts">
         <div class="sync-status" id="sync-status" role="status">

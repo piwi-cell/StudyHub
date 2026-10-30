@@ -70,6 +70,33 @@ def set_hidden(path: str, hidden: bool) -> None:
     core.save_json(HIDDEN_FILE, files)
 
 
+def _questions(entry: dict) -> list[dict]:
+    """Gestellte Fragen zu einem Dokument (KI-Aufgabe „qa“), neueste zuerst, höchstens zehn."""
+    return [{"frage": esc(q["question"]), "antwort": own_html(str(q.get("output", "")))}
+            for q in reversed(entry.get("qa") or [])][:10]
+
+
+def search_hits(query: str, files: list[dict], text_hits: list[dict], limit: int = 25) -> list[dict]:
+    """Treffer für die Suche oben in StudyHub: erst Dateinamen (alle Wörter im Pfad), dann Textstellen.
+    files: sichtbare Dateien wie /api/files; text_hits: tutor.search_material(). Alles HTML-maskiert."""
+    words = [w.casefold() for w in re.findall(r"\w{2,}", query)]
+    if not words:
+        return []
+    visible = {f["path"]: f for f in files}
+    pages = []
+    for hit in text_hits:
+        f = visible.get(hit["path"])
+        if f is None:  # ausgeblendet oder nicht mehr da
+            continue
+        snippet = esc(re.sub(r"\s+", " ", hit["snippet"]).strip()).replace("\x02", "<mark>").replace("\x03", "</mark>")
+        pages.append({"pfad": f["path"], "name": esc(f["name"]), "kurs": esc(f["course"]), "seite": hit["page"],
+                      "ausschnitt": snippet})
+    with_pages = {h["pfad"] for h in pages}  # Dateien mit Textstelle nicht zusätzlich nur mit Namen zeigen
+    names = [{"pfad": f["path"], "name": esc(f["name"]), "kurs": esc(f["course"]), "seite": None, "ausschnitt": ""}
+             for f in files if f["path"] not in with_pages and all(w in core.nfc(f["path"]).casefold() for w in words)]
+    return (names[:10] + pages)[:limit]
+
+
 def rename_folder(old: str, new: str) -> None:
     """Kursordner umbenannt: Lernplan-Status, Ausblendungen und Klausurtermin hängen am Pfad bzw. Kursnamen."""
     for file in (STATE_FILE, HIDDEN_FILE, EXAM_FILE, SKILLS_FILE):
@@ -379,7 +406,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
                 "nr": nr, "titel": stem, "stand": "sitzt", "eigene": True,
                 "kernidee": own_html(text) if text else "Text nicht lesbar: Datei mit „Original öffnen“ ansehen.",
                 "einfacher": "", "formeln": [], "falle": "", "quelle": f"Meine Zusammenfassung · {esc(f['name'])}",
-                "pfad": f["path"], "strukturiert": False, "zusammenfassung": True,
+                "pfad": f["path"], "strukturiert": False, "zusammenfassung": True, "fragen": _questions(ai),
             })
             stapel += [_card(cardstore.card_id(f["path"], c["front"]), f["name"], c["front"], c["back"], karten,
                              now, thema=nr, lernplan=None, pfad=f["path"]) for c in cards]
@@ -393,6 +420,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
             "falle": paragraphs(thema["falle"]) if thema else fallback["falle"],
             "quelle": f"{esc(f['name'])}, S. {seite}" if seite else esc(f["name"]),
             "pfad": f["path"], "strukturiert": bool(thema), "zusammenfassung": bool(summary),
+            "fragen": _questions(ai),
         })
         glossar += [{"begriff": esc(t["name"]), "text": esc(t["text"])} for t in fallback["terms"]]
         stapel += [_card(cardstore.card_id(f["path"], c["front"]), f["name"], c["front"], c["back"], karten, now,

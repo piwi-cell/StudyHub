@@ -147,6 +147,15 @@ Ziel: Andere Studierende (Mac) können die App ohne Entwicklerwerkzeuge installi
 - [x] Release `v1.0.0` (Tag und ZIP), nach dem Fix „Einstellungen gehen beim Abgleich verloren“; am Mac aus dem ZIP installiert
 - [ ] Installationsbefehl ohne Download des Projekts (erst, wenn das Repository öffentlich ist)
 
+### A · Analyse vom 30.10.2026
+- [x] A1 Fehler: Kurs umbenennen behält Lernstand und KI-Ergebnisse, Zielordner geprüft, Skills gespeichert,
+  Cache der Oberfläche, Python 3.13–3.14
+- [x] A2 StudyHub einzige Oberfläche: Suche (Dateinamen und Text), Frage zum Dokument, Weitergeben an
+  Telegram/reMarkable, Im Finder zeigen; klassische Ansicht entfernt (Version 1.2.0)
+- [ ] A3 Anleitung „Was StudyHub kann“ (Lernplan, Karteikarten, Tutor, Bibliotheken, Suche, Weitergeben …)
+- [ ] Später: „Heute dran“ nach Klausurtermin, Probeklausur für echte Kurse, Formeln (KaTeX, neue Abhängigkeit),
+  Erinnerung an fällige Karten per Telegram, Zusammenfassung als PDF, Frage zu Dokumenten ohne Lernthema
+
 ---
 
 ## Nach dem Hackathon (ursprüngliche Roadmap)

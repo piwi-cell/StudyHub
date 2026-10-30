@@ -1,8 +1,7 @@
 """Startet ILIAS-Sync als Mac-App: lokale API im Hintergrund, Oberfläche in einem nativen Fenster.
 
-  python main.py             App öffnen (StudyHub; Einstellungen über „Klassische Ansicht“)
+  python main.py             App öffnen (StudyHub)
   python main.py --demo      mit Beispieldaten (eigener Datenordner, kein ILIAS-Abruf)
-  python main.py --klassisch mit der klassischen Oberfläche starten
   python main.py --browser   nur Server starten und im Browser öffnen (zum Entwickeln)
 """
 
@@ -156,7 +155,6 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo", action="store_true")
     parser.add_argument("--browser", action="store_true")
-    parser.add_argument("--klassisch", action="store_true")
     parser.add_argument("--port", type=int, default=0)
     args = parser.parse_args()
 
@@ -186,8 +184,8 @@ def main() -> None:
     while not server.started:
         time.sleep(0.05)
 
-    # StudyHub ist die Startseite; ohne Einrichtung führt StudyHub selbst zum Uni-Login (klassische Ansicht)
-    start = "/" if args.klassisch else "/ui/studyhub/index.html"
+    # Ohne Einrichtung führt StudyHub selbst zum Uni-Login (#/einrichtung)
+    start = "/ui/studyhub/index.html"
     if args.browser:
         url = f"http://127.0.0.1:{port}{start}?t={token}"
         print(f"StudyHub läuft: {url}")
