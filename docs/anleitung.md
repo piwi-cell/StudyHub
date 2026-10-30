@@ -55,6 +55,73 @@ Das entfernt App, Programm und Hintergrund-Jobs. Mit `--alles` am Ende (nach Rü
 geladene Dateien, KI-Ergebnisse, Lernstand und die Einträge im Schlüsselbund. Dein Zielordner mit den
 Kursdateien bleibt immer erhalten.
 
+## Was StudyHub kann
+
+StudyHub zeigt links deine Module (ein Modul = ein ILIAS-Kurs) und rechts das gewählte Modul mit seinen Tabs.
+Die Startseite sammelt unter **Heute dran**, was ansteht: neue Dateien und fällige Karteikarten.
+
+### Dateien aus ILIAS
+- **Synchronisieren** (oben rechts) holt neue und geänderte Dateien aus ILIAS und kopiert sie in deinen Zielordner.
+  Automatisch geht das unter Einstellungen › Abgleich › „Automatisch im Hintergrund“ (6–22:30 Uhr).
+- Unter **Kurse** (links unten) wählst du, welche Kurse abgeglichen werden, und benennst sie um. Lernstand und
+  KI-Ergebnisse bleiben beim Umbenennen erhalten. „Neue Kurse automatisch übernehmen“ hilft zu Semesterbeginn.
+- Geänderte Dateien landen als zusätzliche Kopie „… (aktualisiert TT.MM.)“ im Zielordner. Deine Notizen in der
+  alten Fassung bleiben so erhalten. Im Zielordner überschreibt oder löscht StudyHub nie etwas.
+
+### Tab „Dokumente“ (Lernplan)
+- Jede Datei hat einen Haken (erledigt) und einen Chip, der beim Antippen wechselt: offen → in Arbeit → erledigt
+  → nochmal üben. Ein Klick auf den Namen öffnet die Datei in der Vorschau.
+- **Eigene Dateien hinzufügen** (oder Dateien ins Fenster ziehen): Sie landen im Kurs unter „Eigene Dateien“.
+- Das durchgestrichene Auge blendet eine Datei nur in StudyHub aus (z. B. Organisatorisches). Auf dem Mac bleibt sie, und unter
+  „Ausgeblendet“ holst du sie zurück.
+- **Klausurtermin eintragen** im Modulkopf: Die Startseite zählt dann die Tage bis zur Klausur.
+
+### Tab „Zusammenfassung“ (mit KI)
+- Ein Klick auf ein Dokument unter „Noch ohne Zusammenfassung“ erstellt ein **Lernthema**: Kernidee, Formeln
+  bzw. wichtige Begriffe und die typische Klausurfalle, mit Seitenangabe.
+- **Einfacher erklären**, **Vorlesen**, **Karten erstellen** und **Abfragen lassen** stehen direkt beim Thema.
+- **Frage zu diesem Dokument**: Die KI antwortet nur aus diesem Dokument, die Antworten bleiben gespeichert.
+- **Weitergeben**: Zusammenfassung oder Karten an Telegram, Zusammenfassung oder das PDF ans reMarkable.
+  **Im Finder zeigen** öffnet den Ordner der Datei.
+- **Eigene Zusammenfassung**: selbst schreiben oder hochladen. Daraus lassen sich ebenfalls Karten erstellen.
+
+### Tab „Karteikarten“
+- Karten entstehen aus einem Lernthema („Karten erstellen“). Gelernt wird mit **Nochmal**, **Schwer** und
+  **Gewusst**; StudyHub plant die Wiederholung danach (wie Anki). Tastatur: Leertaste dreht um, 1/2/3 bewertet.
+- Karten aus **Anki** übernehmen oder dorthin schicken („Mit Anki verbinden“, braucht das Add-on AnkiConnect)
+  oder als Textdatei importieren und „Für Anki exportieren“.
+
+### Tab „Sprachtutor“
+- Der Tutor fragt dich mündlich oder schriftlich ab und bewertet deine Antwort mit Quelle. Dafür braucht er
+  Prüfungsfragen: **Material vorbereiten** erzeugt sie mit der gewählten KI. Mit Gemma über Ollama bereitet
+  StudyHub sie nach jedem Abgleich automatisch vor.
+- **Frage für Frage** (Text oder Mikrofon gedrückt halten) oder **Lerngespräch** (freies Gespräch mit Nachfragen).
+  Mit ElevenLabs spricht der Tutor mit natürlicher Stimme; ohne Key liest die Stimme des Systems vor.
+- Das **Mikrofon** geht nur im Browser, nicht im App-Fenster. StudyHub bietet an, dieselbe Seite im Browser zu öffnen.
+
+### Skills (weitere Tabs)
+Über **+** in der Tableiste fügst du einem Modul Tabs hinzu: **Formelsammlung**, **Mindmap**, **Glossar** (alle aus
+deinen Lernthemen) und **Übungsaufgaben** (Übungsblätter und Tutorien des Kurses). „Tab entfernen“ blendet ihn wieder aus.
+
+### Suche
+Das Suchfeld oben (⌘K) findet Dateinamen und Textstellen in allen Unterlagen, mit Seitenzahl. Den Text bereitet
+StudyHub im Hintergrund vor (beim ersten Start einige Minuten); gescannte Folien findet die Suche nur über den Namen.
+
+### Bibliotheken
+Die Seite **Bibliotheken** zeigt, wie voll die Bereiche der UB Mannheim gerade sind, und den typischen Verlauf je
+Wochentag und Stunde. „Auch messen, wenn die App geschlossen ist“ sammelt dafür im Hintergrund Daten.
+Mit Telegram fragst du von unterwegs mit **/bib** (oder z. B. **/bib a3**) und bekommst auf Wunsch eine Nachricht,
+wenn ein Bereich voll ist und wenn dort wieder Platz ist. Der Bot antwortet, solange StudyHub auf dem Mac läuft.
+
+### Telegram, reMarkable, GoodNotes
+- **Telegram** (Einstellungen › Weitergabe): neue Dateien, Zusammenfassungen, Karten und Bibliotheksmeldungen aufs
+  Handy. Dafür legst du bei @BotFather einen eigenen Bot an und fügst seinen Token ein.
+- **reMarkable**: per USB (Webinterface am Tablet einschalten) oder über die reMarkable-App für macOS.
+- **GoodNotes**: neue PDFs automatisch importieren (Goodnotes für Mac ab macOS 15.7).
+
+### Claude als Lerncoach
+**✦ Claude** oben rechts öffnet Claude Desktop mit einem Lerncoach, der deine Unterlagen kennt (siehe nächster Abschnitt).
+
 ## Claude Desktop statt API-Key
 
 Hast du ein Claude-Abo (Pro oder Max), kann **Claude Desktop** mit deinen Kursunterlagen arbeiten, ohne

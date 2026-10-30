@@ -5,7 +5,7 @@ automatisch, sortiert sie in Kursordner und macht daraus mit KI Zusammenfassunge
 Lernkarten und Antworten auf Fragen. Ergebnisse gehen per Telegram aufs Handy oder als PDF
 aufs reMarkable.
 
-**Für Nutzer:** [Anleitung](docs/anleitung.md) (Installation, Datenschutz, Kosten, häufige Fragen).
+**Für Nutzer:** [Anleitung](docs/anleitung.md) (Installation, was StudyHub kann, Datenschutz, Kosten, häufige Fragen).
 Lizenz: Alle Rechte vorbehalten, Julius Piwaronas ([LICENSE](LICENSE)); Drittsoftware siehe
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
