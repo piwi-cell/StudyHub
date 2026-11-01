@@ -42,6 +42,25 @@ Wo was liegt:
 | Hintergrund-Jobs | `~/Library/LaunchAgents/local.ilias-sync.plist`, `local.ilias-lerner.bibliothek.plist` |
 | Protokolle | `~/Library/Logs/StudyHub.log`, `ILIAS-Sync.log` |
 
+### Installation per DMG (ohne Terminal)
+
+`bash scripts/make_dmg.sh` baut `dist/StudyHub-Installer.dmg` (nur Bordmittel: `hdiutil`, `osascript`).
+Darin liegt „StudyHub installieren.app“: Doppelklick führt `scripts/install.sh` aus, lädt also den
+aktuellen Stand von GitHub, richtet uv und Python ein, legt `~/Applications/StudyHub.app` an und öffnet
+sie. Fortschritt und Ergebnis zeigt die App als Dialog; bricht `install.sh` ab, nennt sie den Grund und das
+Protokoll `~/Library/Logs/StudyHub-Installation.log`. Dieselbe DMG aktualisiert auch (StudyHub vorher
+beenden), deshalb trägt sie keine Versionsnummer. Weitergabe z. B. als Anhang eines GitHub-Release.
+
+Die DMG ist nicht signiert und nicht notarisiert (kein Apple-Developer-Konto). Gatekeeper blockiert die
+heruntergeladene App deshalb beim ersten Öffnen:
+
+- **macOS 15 und neuer:** Doppelklick, Meldung schließen, dann Systemeinstellungen › Datenschutz &
+  Sicherheit › bei „StudyHub installieren“ auf „Trotzdem öffnen“ klicken und bestätigen.
+- **macOS 13 und 14:** Rechtsklick auf die App › „Öffnen“ › „Öffnen“.
+
+Derselbe Hinweis liegt als Textdatei in der DMG. Die installierte StudyHub.app ist davon nicht betroffen:
+Sie wird auf dem Mac gebaut und trägt keinen Quarantäne-Vermerk.
+
 ### Umstieg von der Terminal-Version (`ilias-sync`)
 
 Die App nutzt dieselben Daten, Zugangsdaten und denselben Hintergrund-Job (`local.ilias-sync`) wie

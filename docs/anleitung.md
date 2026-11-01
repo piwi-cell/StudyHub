@@ -12,7 +12,15 @@ Kursordner und macht daraus auf Wunsch mit KI Zusammenfassungen, Lernkarten und 
 
 ## Installieren
 
-Terminal öffnen (Programme › Dienstprogramme › Terminal), diesen Befehl einfügen und Return drücken:
+**Ohne Terminal:** `StudyHub-Installer.dmg` laden (Releases auf github.com/piwi-cell/StudyHub), doppelklicken und im geöffneten Fenster
+„StudyHub installieren“ doppelklicken. Nach der Bestätigung dauert es einige Minuten, dann öffnet sich
+StudyHub. Beim ersten Öffnen blockiert macOS die Installer-App, weil sie nicht von Apple notarisiert ist:
+Unter macOS 15 und neuer die Meldung schließen, dann Systemeinstellungen › Datenschutz & Sicherheit › bei
+„StudyHub installieren“ auf „Trotzdem öffnen“ klicken; unter macOS 13 und 14 Rechtsklick auf die App ›
+„Öffnen“. Bricht die Installation ab, nennt die App den Grund; das Protokoll liegt unter
+`~/Library/Logs/StudyHub-Installation.log`.
+
+**Mit Terminal:** Terminal öffnen (Programme › Dienstprogramme › Terminal), diesen Befehl einfügen und Return drücken:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/piwi-cell/StudyHub/main/scripts/install.sh | bash
@@ -30,7 +38,8 @@ Tipp: App ins Dock ziehen. Öffnest du sie ein zweites Mal, holt sie das offene 
 
 ## Aktualisieren
 
-App beenden (⌘Q) und den Installationsbefehl von oben erneut ausführen.
+App beenden (⌘Q) und „StudyHub installieren“ aus der DMG erneut öffnen oder den Installationsbefehl
+von oben erneut ausführen.
 Einstellungen, Dateien, Lernstand und Zugangsdaten bleiben erhalten. Die installierte Version steht unter
 Einstellungen › Über die App.
 

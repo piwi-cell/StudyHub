@@ -239,3 +239,86 @@ def test_setup_uses_only_uv_managed_python(sandbox, tmp_path):
     assert result.returncode == 0, result.stderr
     assert calls.read_text(encoding="utf-8").splitlines() == [
         "uv sync --quiet --locked --no-dev | only-managed | 3.13"]
+
+
+# hdiutil-Ersatz: legt die DMG als leere Datei an und hebt den Inhalt (-srcfolder) für den Test auf
+HDIUTIL = ('echo "hdiutil $*" >> "$CALLS"; while [ $# -gt 1 ]; do [ "$1" = -srcfolder ] && cp -R "$2" "$DMG_CONTENT"; '
+           'shift; done; touch "$1"')
+INSTALLER = "StudyHub installieren.app/Contents"
+
+
+@pytest.fixture
+def dmg(sandbox, tmp_path):
+    """Baut die DMG aus dem echten Projekt mit hdiutil-Ersatz; liefert den Inhalt der DMG."""
+    _, env, calls = sandbox
+    bin_dir = Path(env["PATH"].split(":")[0])
+    (bin_dir / "hdiutil").write_text(f"#!/bin/bash\n{HDIUTIL}\n", encoding="utf-8")
+    (bin_dir / "hdiutil").chmod(0o755)
+    (bin_dir / "osascript").write_text(  # FAKE_OSASCRIPT=1: Klick auf „Abbrechen“
+        '#!/bin/bash\nprintf "osascript %s\\n" "$*" >> "$CALLS"; exit "${FAKE_OSASCRIPT:-0}"\n', encoding="utf-8")
+    (bin_dir / "osascript").chmod(0o755)
+    content = tmp_path / "dmg-inhalt"
+    target = tmp_path / "ausgabe/StudyHub-Installer.dmg"
+    result = _run(ROOT / "scripts/make_dmg.sh", {**env, "DMG_CONTENT": str(content)}, str(target))
+    assert result.returncode == 0, result.stderr
+    assert target.exists() and f"Fertig: {target}" in result.stdout
+    assert "-format UDZO" in calls.read_text(encoding="utf-8")
+    calls.unlink()
+    return content
+
+
+def test_make_dmg_contains_installer_app_with_install_script_and_hint(dmg):
+    info = plistlib.loads((dmg / INSTALLER / "Info.plist").read_bytes())
+    launcher = dmg / INSTALLER / "MacOS" / info["CFBundleExecutable"]
+    assert os.access(launcher, os.X_OK) and info["CFBundleIdentifier"] == "local.studyhub.installer"
+    assert (dmg / INSTALLER / "Resources/AppIcon.icns").exists()
+    embedded = (dmg / INSTALLER / "Resources/install.sh").read_text(encoding="utf-8")
+    assert embedded == (ROOT / "scripts/install.sh").read_text(encoding="utf-8")
+    assert "Trotzdem öffnen" in (dmg / "Falls macOS das Öffnen blockiert.txt").read_text(encoding="utf-8")
+
+
+def _archive(tmp_path: Path) -> str:
+    """Projekt als .tar.gz wie das Archiv von GitHub (ein Ordner auf oberster Ebene), lokal per file://."""
+    source = _source(tmp_path)
+    archive = tmp_path / "main.tar.gz"
+    subprocess.run(["tar", "czf", str(archive), "-C", str(source.parent), source.name], check=True)
+    return archive.as_uri()
+
+
+def _installer(dmg: Path) -> Path:
+    return dmg / INSTALLER / "MacOS/StudyHub installieren"
+
+
+def test_installer_app_downloads_installs_and_opens_studyhub(sandbox, tmp_path, dmg):
+    home, env, calls = sandbox
+    result = subprocess.run([str(_installer(dmg))], env={**env, "ILIAS_LERNER_ARCHIVE": _archive(tmp_path)},
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    install, app, _ = _paths(home)
+    assert (install / "main.py").exists() and (app / "Contents/Info.plist").exists()
+    log = calls.read_text(encoding="utf-8")
+    assert "setup --app" in log and "StudyHub 9.9.9 ist installiert" in log
+    assert log.strip().endswith(f"open {app}")  # genau einmal geöffnet, nach der Erfolgsmeldung
+    assert log.count("open ") == 1
+    assert "Fertig: StudyHub 9.9.9" in (home / "Library/Logs/StudyHub-Installation.log").read_text(encoding="utf-8")
+
+
+def test_installer_app_shows_reason_and_log_path_when_install_fails(sandbox, tmp_path, dmg):
+    home, env, calls = sandbox
+    missing = (tmp_path / "fehlt.tar.gz").as_uri()
+    result = subprocess.run([str(_installer(dmg))], env={**env, "ILIAS_LERNER_ARCHIVE": missing},
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 1
+    log = calls.read_text(encoding="utf-8")
+    assert "Abbruch: Download fehlgeschlagen" in log
+    assert str(home / "Library/Logs/StudyHub-Installation.log") in log
+    assert "open" not in log.replace("osascript", "") and not _paths(home)[1].exists()
+
+
+def test_installer_app_does_nothing_when_cancelled(sandbox, tmp_path, dmg):
+    home, env, calls = sandbox
+    result = subprocess.run([str(_installer(dmg))], env={**env, "FAKE_OSASCRIPT": "1"},
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0
+    assert calls.read_text(encoding="utf-8").count("osascript") == 1
+    assert not (home / "Library/Logs/StudyHub-Installation.log").exists()
