@@ -27,9 +27,6 @@ export UV_PYTHON_INSTALL_DIR="$PWD/.tools/python"
 # Nur das von uv geladene Python 3.13, nie ein Python des Systems: ein altes Intel-Python im Suchpfad
 # (z. B. /Library/Frameworks/…/3.9) lässt uv auf Apple-Chips sonst mit „Bad CPU type“ abbrechen
 export UV_PYTHON_PREFERENCE=only-managed UV_PYTHON=3.13
-# Nur das von uv geladene Python 3.13, nie ein Python des Systems: ein altes Intel-Python im Suchpfad
-# (z. B. /Library/Frameworks/…/3.9) lässt uv auf Apple-Chips sonst mit „Bad CPU type“ abbrechen
-export UV_PYTHON_PREFERENCE=only-managed UV_PYTHON=3.13
 if [ "${1:-}" = "--app" ]; then
   .tools/uv sync --quiet --locked --no-dev  # .venv exakt nach uv.lock, ohne Test-Werkzeuge
 else
