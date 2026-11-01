@@ -7,13 +7,24 @@ cd "$(dirname "$0")/.."
 
 UV_VERSION="0.12.19"
 [ "$(uname -s)" = "Darwin" ] || { echo "Nur macOS."; exit 1; }
-case "$(uname -m)" in
+ARCH="$(uname -m)"
+# Terminal unter Rosetta („Mit Rosetta öffnen“) meldet auf Apple-Chips x86_64: trotzdem die Fassung für
+# Apple-Chips nehmen, für Intel fehlen fertige Pakete (z. B. cryptography) und uv müsste sie selbst bauen
+if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+  ARCH="arm64"
+fi
+case "$ARCH" in
   arm64)  UV_ARCH="aarch64"; UV_SHA256="a9a8df1eedeb192f2e47e40e2faabfb387db4b850209118786d42f89dde3e0ba" ;;
   x86_64) UV_ARCH="x86_64";  UV_SHA256="cb5fa57bafe68fc0fb94b17f06bee0b0b9a7feb94ccbd110445afa0696e39273" ;;
-  *) echo "Unbekannter Prozessor: $(uname -m)"; exit 1 ;;
+  *) echo "Unbekannter Prozessor: $ARCH"; exit 1 ;;
 esac
 
 mkdir -p .tools
+# Reste einer Einrichtung für den anderen Prozessor (z. B. früher unter Rosetta) entfernen
+case "$(file -b .tools/uv 2>/dev/null || true)" in
+  Mach-O*"$ARCH"*) ;;
+  Mach-O*) rm -rf .tools/uv .tools/python .venv ;;
+esac
 if [ "$(.tools/uv --version 2>/dev/null | cut -d' ' -f2)" != "$UV_VERSION" ]; then
   tmp=$(mktemp -d)
   curl -fsSL -o "$tmp/uv.tar.gz" \
