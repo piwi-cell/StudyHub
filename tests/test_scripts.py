@@ -216,3 +216,26 @@ def test_uninstall_everything_keeps_data_shared_with_the_terminal_version(sandbo
     assert result.returncode == 0, result.stderr
     assert (data / "config.json").exists() and not install.exists()
     assert "security" not in calls.read_text(encoding="utf-8")
+
+
+def test_setup_uses_only_uv_managed_python(sandbox, tmp_path):
+    """Ein altes Intel-Python im Suchpfad (/Library/Frameworks/…/3.9) brach auf Apple-Chips mit „Bad CPU type“
+    ab: setup.sh lässt uv nur sein eigenes Python 3.13 verwenden."""
+    _, env, calls = sandbox
+    project = tmp_path / "projekt"
+    (project / "scripts").mkdir(parents=True)
+    shutil.copy(ROOT / "scripts/setup.sh", project / "scripts/setup.sh")
+    (project / ".tools").mkdir()
+    fake_uv = project / ".tools/uv"  # passende Version: setup.sh lädt nichts herunter
+    fake_uv.write_text('#!/bin/bash\n[ "$1" = "--version" ] && { echo "uv 0.12.19"; exit 0; }\n'
+                       'echo "uv $* | $UV_PYTHON_PREFERENCE | $UV_PYTHON" >> "$CALLS"\n', encoding="utf-8")
+    fake_uv.chmod(0o755)
+    bin_dir = tmp_path / "bin-arm"
+    bin_dir.mkdir()
+    (bin_dir / "uname").write_text('#!/bin/bash\n[ "$1" = "-m" ] && echo arm64 || echo Darwin\n', encoding="utf-8")
+    (bin_dir / "uname").chmod(0o755)
+    env = {**env, "PATH": f"{bin_dir}:{env['PATH']}"}
+    result = _run(project / "scripts/setup.sh", env, "--app")
+    assert result.returncode == 0, result.stderr
+    assert calls.read_text(encoding="utf-8").splitlines() == [
+        "uv sync --quiet --locked --no-dev | only-managed | 3.13"]
