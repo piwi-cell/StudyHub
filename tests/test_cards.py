@@ -37,7 +37,7 @@ def test_overview_shows_due_new_and_own_cards():
     path = "Accounting/Vorlesung/01 Bilanz.pdf"
     ki_id = cards.card_id(path, "Was ist <b>Aktiva</b>?")
     karten = {"reviews": {ki_id: cards.schedule(None, "gewusst", NOW)}, "imported": {}}
-    data = studyhub.overview(CONFIG, FILES, AI, {}, {}, now=NOW, karten=karten)
+    data = studyhub.overview(CONFIG, FILES, AI, {}, now=NOW, karten=karten)
     k = data["details"]["accounting"]["karten"]
     assert (k["faellig"], k["gesamt"], k["naechste"]) == (0, 1, 1)
     assert k["liste"][0]["id"] == ki_id and k["liste"][0]["faellig"] is False
@@ -45,7 +45,7 @@ def test_overview_shows_due_new_and_own_cards():
 
     karten["imported"]["x" * 16] = {"kurs": "Accounting", "front": "<i>Soll</i>", "back": "links",
                                     "quelle": "Anki · BWL", "created": NOW}
-    data = studyhub.overview(CONFIG, FILES, AI, {}, {}, now=NOW + 2 * DAY, karten=karten)
+    data = studyhub.overview(CONFIG, FILES, AI, {}, now=NOW + 2 * DAY, karten=karten)
     liste = data["details"]["accounting"]["karten"]["liste"]
     assert [(c["neu"], c["faellig"], c["thema"]) for c in liste] == [(False, True, 1), (True, True, 0)]
     assert liste[1]["frage"] == "&lt;i&gt;Soll&lt;/i&gt;" and liste[1]["lernplan"] is None
@@ -88,11 +88,11 @@ def test_exam_dates():
     with pytest.raises(ValueError):
         studyhub.set_exam("Accounting", "10.02.2027")
     now = time.mktime(time.strptime("2027-01-31", "%Y-%m-%d"))
-    data = studyhub.overview(CONFIG, FILES, AI, {}, {}, now=now, exams=studyhub.load_exams())
+    data = studyhub.overview(CONFIG, FILES, AI, {}, now=now, exams=studyhub.load_exams())
     assert data["daten"]["naechsteKlausur"] == {"modulId": "accounting", "tage": 10}
     assert data["daten"]["semester"][0]["module"][0]["klausur"] == {"datum": "2027-02-10", "tage": 10}
     later = time.mktime(time.strptime("2027-03-01", "%Y-%m-%d"))  # vorbei: nicht mehr anzeigen
-    assert studyhub.overview(CONFIG, FILES, AI, {}, {}, now=later, exams=studyhub.load_exams())["daten"][
+    assert studyhub.overview(CONFIG, FILES, AI, {}, now=later, exams=studyhub.load_exams())["daten"][
         "naechsteKlausur"] is None
     studyhub.set_exam("Accounting", None)
     assert studyhub.load_exams() == {}

@@ -49,8 +49,9 @@ AI = {
 
 
 def test_overview_matches_mock_format():
-    data = studyhub.overview(CONFIG, FILES, AI, {"Accounting": {"questions": 6, "wrong": 2}},
-                             {"Accounting/Übung/Blatt 1.pdf": {"status": "erledigt"}}, now=NOW)
+    data = studyhub.overview(CONFIG, FILES, AI,
+                             {"Accounting/Übung/Blatt 1.pdf": {"status": "erledigt"},
+                              "Accounting/Tutorium/Tut 1.pdf": {"status": "nochmal"}}, now=NOW)
     daten, details = data["daten"], data["details"]
     assert daten["nutzer"] == {"vorname": "mmuster", "initialen": "MM"}
     assert daten["naechsteKlausur"] is None
@@ -63,7 +64,7 @@ def test_overview_matches_mock_format():
     lp = details["accounting"]["lernplan"]
     assert [k["titel"] for k in lp["kapitel"]] == ["Vorlesung"]
     assert [(b["art"], b["titel"]) for b in lp["bereiche"]] == [("Tutorium", "Tutorium"), ("Übung", "Übung")]
-    assert lp["basis"] == {"erledigt": 1, "gesamt": 3, "nochmal": 0, "offen": 2}
+    assert lp["basis"] == {"erledigt": 1, "gesamt": 3, "nochmal": 1, "offen": 1}
 
     thema = details["accounting"]["themen"][0]
     assert thema["titel"] == "Die Bilanz" and thema["quelle"] == "01 Bilanz.pdf, S. 3" and thema["strukturiert"]
@@ -73,7 +74,7 @@ def test_overview_matches_mock_format():
     karte = details["accounting"]["karten"]["liste"][0]
     assert karte["frage"] == "Was ist &lt;b&gt;Aktiva&lt;/b&gt;?"
     assert karte["thema"] == 1 and karte["lernplan"] == karte["pfad"]
-    assert details["accounting"]["tutor"]["fragen"] == 6
+    assert details["accounting"]["kurs"] == "Accounting"
     assert {c["tab"] for c in daten["heuteDran"]} == {"karteikarten", "lernplan", "dokumente"}
 
 
@@ -85,7 +86,7 @@ def test_long_topic_text_keeps_paragraphs_and_bullets():
 
 
 def test_markdown_summary_fallback_and_escaping():
-    data = studyhub.overview(CONFIG, FILES, AI, {}, {}, now=NOW)
+    data = studyhub.overview(CONFIG, FILES, AI, {}, now=NOW)
     mathe = data["details"]["mathe"]
     thema = mathe["themen"][0]
     assert "<img" not in thema["titel"] and "&lt;img" in thema["titel"]
@@ -97,7 +98,7 @@ def test_markdown_summary_fallback_and_escaping():
 
 def test_courses_without_semester_and_slugs():
     config = {"uni_id": "", "courses": {"Kurs ohne Semester": {"name": "Übung & Co", "sync": True}}}
-    data = studyhub.overview(config, [], {}, {}, {}, now=NOW)
+    data = studyhub.overview(config, [], {}, {}, now=NOW)
     semester = data["daten"]["semester"]
     assert semester[0]["name"] == "Meine Kurse" and semester[0]["status"] == "aktuell"
     module = semester[0]["module"][0]
@@ -108,7 +109,7 @@ def test_documents_marked_official_or_own():
     config = {"uni_id": "", "courses": {"MAT 100 Mathe [V] (HWS 2026)": {"name": "Mathe", "sync": True}}}
     files = [_file("Mathe/Vorlesung/Kapitel 1.pdf"), _file("Mathe/Eigene Dateien/Mitschrift.pdf"),
              _file("Mathe/Eigene Zusammenfassungen/Kapitel 1.md")]
-    gruppen = studyhub.overview(config, files, {}, {}, {}, now=NOW)["details"]["mathe"]["dokumente"]
+    gruppen = studyhub.overview(config, files, {}, {}, now=NOW)["details"]["mathe"]["dokumente"]
     eigen = {g["gruppe"]: g["eigen"] for g in gruppen}
     assert eigen == {"Vorlesung": False, "Eigene Dateien": True, "Eigene Zusammenfassungen": True}
 
@@ -122,7 +123,7 @@ def test_switched_off_course_stays_hidden_with_old_files():
     files = [_file("Finanzmathematik VL/Vorlesung/Kapitel 1.pdf"), _file("Mathe/Skript.pdf"),
              _file("Eigener Ordner/Notizen.pdf")]
     hidden = [_file("Finanzmathematik VL/Alt.pdf")]
-    data = studyhub.overview(config, files, {}, {}, {}, now=NOW, hidden=hidden)
+    data = studyhub.overview(config, files, {}, {}, now=NOW, hidden=hidden)
     names = [m["name"] for s in data["daten"]["semester"] for m in s["module"]]
     assert "Finanzmathematik VL" not in names
     assert "Mathe" in names and "Eigener Ordner" in names  # Ordner ohne Kurs-Eintrag bleiben sichtbar
@@ -192,6 +193,6 @@ def test_same_semester_with_different_spellings():
         "MAN 301 Marketing [V] (HWS 2026)": {"name": "Marketing", "sync": True},
         "MAT 100 Mathe [V] (FSS 2026)": {"name": "Mathe", "sync": True},
     }}
-    semester = studyhub.overview(config, [], {}, {}, {}, now=NOW)["daten"]["semester"]
+    semester = studyhub.overview(config, [], {}, {}, now=NOW)["daten"]["semester"]
     assert [(s["name"], s["status"], len(s["module"])) for s in semester] == [
         ("HWS 2026", "aktuell", 2), ("FSS 2026", "abgeschlossen", 1)]

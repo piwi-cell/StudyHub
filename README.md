@@ -94,11 +94,11 @@ Tests und Lint (laufen auch in der CI):
 | `core/` | Kern des Skripts (Abgleich, PFERD, Kurse, Telegram, GoodNotes, Notion, launchd) mit minimalen Änderungen |
 | `server/app.py` | lokale API (FastAPI, nur 127.0.0.1, Sitzungs-Token), ruft nur Kernfunktionen auf |
 | `server/ai.py` | KI-Schicht: Claude, ChatGPT, Gemini und Gemma hinter einer Schnittstelle, Ergebnis-Cache |
-| `server/tutor.py`, `server/voice.py` | Study-Tutor: Fragen, Bewertung, Volltextsuche; Sprache über ElevenLabs (siehe `docs/tutor/`) |
+| `server/search_index.py` | Volltextsuche über die Kursunterlagen (Suche oben in StudyHub) |
 | `server/studyhub.py` | Daten für die neue Oberfläche StudyHub im Format der Mock-Daten (siehe `docs/studyhub-api.md`) |
 | `server/uploads.py` | Eigene Dateien hochladen (StudyHub › Dokumente), Ablage unter `<Kurs>/Eigene Dateien/` |
 | `server/integrations.py` | Telegram-Versand, reMarkable (USB oder Desktop-App), Text→PDF |
-| `ui/studyhub/` | Oberfläche StudyHub (HTML/CSS/JS ohne Framework, Dark Mode); `ui/vendor/` ElevenLabs-Client |
+| `ui/studyhub/` | Oberfläche StudyHub (HTML/CSS/JS ohne Framework, Dark Mode) |
 | `main.py` | startet Server und natives Fenster (pywebview/WebKit) |
 | `scripts/demo_data.py` | Beispielkurse und -PDFs für die Demo |
 | `scripts/setup.sh` | Entwicklungsumgebung einrichten (`--app`: ohne Test-Werkzeuge) |
@@ -119,7 +119,7 @@ Konfiguration, Zustand und Passwörter teilt sich die App mit der Terminal-Versi
   selben Dokument lesen es aus dem Cache (gemessen: 1.138 von 1.192 Tokens aus dem Cache).
 - **Kosten:** Jedes Ergebnis bekommt beim Erzeugen eine Kostenschätzung nach dem Listenpreis des Tages
   (`PRICES` in `server/ai.py`, Stand 27.10.2026); Einstellungen › KI zeigt die Summe des Monats.
-  Gespräche im Sprachtutor und über Claude Desktop sind nicht enthalten. Preise ändern sich: Tabelle pflegen.
+  Gespräche über Claude Desktop sind nicht enthalten. Preise ändern sich: Tabelle pflegen.
 - **Modellwahl:** Claude Opus 5.5 (Standard), Sonnet 5.5 oder Haiku 5.5 in den Einstellungen.
   Bei Opus und Sonnet springt bei einer Ablehnung serverseitig ein anderes Modell ein (`fallbacks: "default"`).
 - **ChatGPT (OpenAI):** GPT-6 Astra, GPT-6.1 Sol (Standard) oder GPT-6 Luna, direkt über die

@@ -24,8 +24,6 @@ Mit Sitzungs-Token holt StudyHub alles aus der lokalen API (`server/app.py`, For
 | Weitergeben (im Lernthema) | `POST /api/share` `{ path, task: "thema" \| "summary" \| "flashcards" \| "original", target: "telegram" \| "remarkable" }` |
 | Lernthema (Kernidee, Formeln, Klausurfalle, Einfacher erklären) | `/api/ai/run` mit `task: "thema"` |
 | Karteikarten erstellen | `/api/ai/run` mit `task: "flashcards"` |
-| Sprachtutor „Frage für Frage“ | `/api/tutor/*` inkl. ElevenLabs (Vorlesen, Push-to-Talk) |
-| Sprachtutor „Gespräch mit dem Tutor“ | ElevenLabs Agent über `/api/tutor/agent-session` und das SDK in `ui/vendor/`, Client-Tools `get_next_question` / `record_result` (`js/live.js`) |
 | Top-Bar: „✦ Claude“ (Lerncoach in Claude Desktop über den MCP-Server) | `POST /api/claude/open` |
 | Karteikarten mit Lernstand (SM-2), Anki, Textdateien | `/api/cards/*`, `/api/anki/*` |
 | Klausurtermin im Modulkopf | `PATCH /api/studyhub/klausur` |
@@ -43,7 +41,7 @@ Das Mikrofon geht nur im Browser, nicht im nativen App-Fenster.
 - **Top-Bar:** Suche (⌘K), ILIAS-Status, simuliertes „Synchronisieren“
 - **Register links:** Semester, Module mit Lernstand, „+ Modul aus ILIAS hinzufügen“
 - **Startseite:** Begrüßung, nächste Klausur, „Heute dran“, Modul-Kacheln
-- **Modul Finanzmathematik** mit Tabbar `Übersicht │ Dokumente Lernplan ┃ Zusammenfassung Karteikarten Sprachtutor +`
+- **Modul Finanzmathematik** mit Tabbar `Übersicht │ Dokumente Lernplan ┃ Zusammenfassung Karteikarten +`
   - **Übersicht:** Widgets für Lernplan, Karteikarten, Zusammenfassung, Dokumente
   - **Dokumente:** gruppiert nach Vorlesung, Tutorium, Übung & Zusatz, mit „neu“-Badge
   - **Lernplan:** Gesamtfortschritt, Filter, Status antippen (offen → in Arbeit → erledigt → nochmal üben),
@@ -52,7 +50,6 @@ Das Mikrofon geht nur im Browser, nicht im nativen App-Fenster.
     Aktionen Karten erstellen, Abfragen lassen, Einfacher erklären, Vorlesen
   - **Karteikarten:** Themen-Filter, Antwort zeigen, Nochmal / Schwer / Gewusst
     (Tastatur: Leertaste, 1, 2, 3). „Nochmal“ markiert den Eintrag im Lernplan.
-  - **Sprachtutor:** Demo-Gespräch mit Mikrofon-Knopf, Stimme vorerst vom Browser
   - **+ Skill hinzufügen:** Probeklausur, Formelsammlung, Mindmap, Glossar, Übungsaufgaben.
     Hinzugefügte Skills erscheinen als eigener Tab. Ohne Zusammenfassung sind abhängige Skills ausgegraut
     (zum Zeigen: Knopf „Ansicht ohne Zusammenfassung“).
@@ -62,9 +59,9 @@ Das Mikrofon geht nur im Browser, nicht im nativen App-Fenster.
 | Datei | Inhalt |
 |---|---|
 | `css/styles.css` | Alle Design-Tokens als CSS-Variablen ganz oben, danach die Komponenten |
-| `js/daten.js` | Mock-Daten (Semester, Module, Finanzmathematik mit Lernplan, Themen, Karten, Tutor) |
+| `js/daten.js` | Mock-Daten (Semester, Module, Finanzmathematik mit Lernplan, Themen, Karten) |
 | `js/icons.js` | Linien-Icons als SVG |
-| `js/live.js` | Anbindung an die echte App (`/api/studyhub`, KI, Sprachtutor, Lernplan speichern) |
+| `js/live.js` | Anbindung an die echte App (`/api/studyhub`, KI, Lernplan speichern) |
 | `js/einstellungen.js` | Seiten „Kurse“ und „Einstellungen“ im StudyHub-Design |
 | `js/app.js` | Seiten, Tabs, Navigation (`#/modul/fima/uebersicht`) und Klicks |
 

@@ -39,12 +39,11 @@ import goodnotes  # noqa: E402
 import integrations  # noqa: E402
 import libraries  # noqa: E402
 import schedule  # noqa: E402
+import search_index  # noqa: E402
 import studyhub  # noqa: E402
 import sync  # noqa: E402
 import telegram_bot  # noqa: E402
-import tutor  # noqa: E402
 import uploads  # noqa: E402
-import voice  # noqa: E402
 from core import APP_DIR, KEYCHAIN_SERVICE, MIRROR_DIR  # noqa: E402
 
 TOKEN = os.environ.get("ILIAS_SYNC_TOKEN") or secrets.token_urlsafe(24)
@@ -55,37 +54,24 @@ VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["
 APP_DIR.mkdir(parents=True, exist_ok=True)
 _sync_thread: threading.Thread | None = None
 _sync_error: str | None = None
-_tutor_wake = threading.Event()  # weckt die automatische Tutor-Vorbereitung (z. B. nach einem Abgleich)
+_index_wake = threading.Event()  # weckt die Aufnahme neuer Dateien in die Suche (z. B. nach einem Abgleich)
 _stopping = threading.Event()
-TUTOR_AUTO_INTERVAL = 600  # Sekunden zwischen zwei Durchläufen der Tutor-Vorbereitung
+INDEX_INTERVAL = 600  # Sekunden zwischen zwei Durchläufen der Suchaufnahme
 
 
-def tutor_auto_worker() -> None:
-    """Bereitet im Hintergrund neue Kursdateien für den Study-Tutor vor (Gemma, kostenlos)."""
-    _tutor_wake.wait(5)  # App erst in Ruhe starten lassen
+def search_index_worker() -> None:
+    """Nimmt neue oder geänderte Kursdateien im Hintergrund in die Volltextsuche auf."""
+    _index_wake.wait(5)  # App erst in Ruhe starten lassen
     while not _stopping.is_set():
-        _tutor_wake.clear()
+        _index_wake.clear()
         try:
-            if not sync_running():  # Volltext für die Suche, unabhängig von Gemma
+            if not sync_running():
                 files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()]
-                if added := tutor.index_all(files, stop=_stopping.is_set):
+                if added := search_index.index_all(files, stop=_stopping.is_set):
                     core.log(f"Suche: {added} Dateien durchsuchbar gemacht")
-            gemma = ai.providers()["gemma"]
-            if not core.load_config().get("tutor_auto", True):
-                tutor.progress["error"] = ""
-            elif not gemma["local"]:
-                # Über die Gemini API nicht automatisch: das würde das kostenlose Kontingent aufbrauchen
-                tutor.progress["error"] = "Automatische Vorbereitung nur mit Gemma lokal (Ollama)"
-            elif gemma["small"]:
-                # 270M und 1B scheitern an echten Kursdateien am JSON: lieber gar nicht als endlos abbrechen
-                tutor.progress["error"] = (f"{gemma['model']} ist für automatische Fragen zu klein: im Terminal "
-                                           "„ollama pull gemma3:4b“ ausführen")
-            elif not sync_running():
-                files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()]
-                tutor.prepare_pending(files, stop=_stopping.is_set)
         except Exception as error:  # der Hintergrund-Thread darf die App nie mitreißen
-            core.log(f"Tutor: automatische Vorbereitung fehlgeschlagen ({error})")
-        _tutor_wake.wait(TUTOR_AUTO_INTERVAL)
+            core.log(f"Suche: Aufnahme fehlgeschlagen ({error})")
+        _index_wake.wait(INDEX_INTERVAL)
 
 
 def library_worker() -> None:
@@ -122,7 +108,7 @@ def schedule_refresh() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     _stopping.clear()
-    threading.Thread(target=tutor_auto_worker, daemon=True, name="tutor-auto").start()
+    threading.Thread(target=search_index_worker, daemon=True, name="suchindex").start()
     if not DEMO:  # Demo-Modus und Tests rufen die Seite der UB und Telegram nie ab
         threading.Thread(target=schedule_refresh, daemon=True, name="abgleich-job").start()
         threading.Thread(target=library_worker, daemon=True, name="bibliotheken").start()
@@ -130,7 +116,7 @@ async def lifespan(_app: FastAPI):
                          daemon=True, name="telegram-bot").start()
     yield
     _stopping.set()
-    _tutor_wake.set()
+    _index_wake.set()
 
 
 app = FastAPI(title="StudyHub", lifespan=lifespan)
@@ -170,7 +156,7 @@ def mirror_path(relative: str) -> Path:
 
 def mirror_files(hidden: bool = False) -> list[Path]:
     """Dateien im Spiegel. In StudyHub ausgeblendete Dateien fehlen (überall in der App: Dokumente,
-    Lernplan, Tutor, MCP); hidden=True liefert nur diese."""
+    Lernplan, Suche, MCP); hidden=True liefert nur diese."""
     if not MIRROR_DIR.exists():
         return []
     skip = studyhub.hidden_files()
@@ -282,7 +268,7 @@ def start_sync() -> dict:
             sync.run()
         except Exception as error:  # sync.run fängt selbst fast alles ab
             _sync_error = str(error)
-        _tutor_wake.set()  # neue Dateien gleich für den Tutor vorbereiten
+        _index_wake.set()  # neue Dateien gleich durchsuchbar machen
 
     _sync_thread = threading.Thread(target=worker, daemon=True)
     _sync_thread.start()
@@ -337,11 +323,11 @@ def update_course(update: CourseUpdate) -> dict:
 
 
 def rename_app_data(old: str, new: str) -> None:
-    """Kursordner umbenannt: KI-Ergebnisse, Lernplan, Karten und Tutor hängen am Pfad und ziehen mit."""
+    """Kursordner umbenannt: KI-Ergebnisse, Lernplan, Karten und Suche hängen am Pfad und ziehen mit."""
     ai.rename_folder(old, new)
     studyhub.rename_folder(old, new)
     cards.rename_folder(old, new, cached_by_path())
-    tutor.rename_folder(old, new)
+    search_index.rename_folder(old, new)
     core.log(f"Kurs umbenannt: {old} → {new} (Lernstand und KI-Ergebnisse übernommen)")
 
 
@@ -405,7 +391,7 @@ def ai_providers() -> dict:
 
 @app.get("/api/ai/usage", dependencies=[api])
 def ai_usage(month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$")) -> dict:
-    """Geschätzte KI-Kosten eines Monats (gespeicherte Ergebnisse, Listenpreise; ohne Sprachtutor)."""
+    """Geschätzte KI-Kosten eines Monats (gespeicherte Ergebnisse, Listenpreise)."""
     return ai.usage(month)
 
 
@@ -413,9 +399,9 @@ def ai_usage(month: str | None = Query(None, pattern=r"^\d{4}-\d{2}$")) -> dict:
 def search(q: str = Query("", max_length=200)) -> dict:
     """Suche oben in StudyHub: Dateinamen und Text der Unterlagen (Volltextindex, im Hintergrund aufgebaut)."""
     files = list_files()["files"]
-    readable = sum(1 for f in files if "." + f["ext"] in tutor.EXTENSIONS)
-    return {"treffer": studyhub.search_hits(q, files, tutor.search_material(q)),
-            "ausstehend": max(0, readable - tutor.index_count())}
+    readable = sum(1 for f in files if "." + f["ext"] in search_index.EXTENSIONS)
+    return {"treffer": studyhub.search_hits(q, files, search_index.search_material(q)),
+            "ausstehend": max(0, readable - search_index.index_count())}
 
 
 @app.get("/api/ai/result", dependencies=[api])
@@ -532,11 +518,6 @@ def settings() -> dict:
         "gemini_model": config.get("gemini_model", ai.DEFAULT_GEMINI_MODEL),
         "gemma_api_model": ai.gemma_api_model(),
         "has_google_key": bool(ai.google_key()),
-        "tutor_brain": config.get("tutor_brain", tutor.DEFAULT_BRAIN),
-        "voice_id": config.get("voice_id", voice.DEFAULT_VOICE),
-        "has_elevenlabs_key": bool(voice.api_key()),
-        "agent_id": config.get("agent_id", ""),
-        "tutor_auto": config.get("tutor_auto", True),
         "remarkable": integrations.remarkable_status(),
         "claude_desktop": integrations.claude_desktop_status(demo=DEMO),
         "demo": DEMO,
@@ -604,11 +585,6 @@ class SettingsUpdate(BaseModel):
     gemini_model: str | None = None
     gemma_api_model: str | None = None
     google_key: str | None = None
-    tutor_brain: str | None = None
-    voice_id: str | None = None
-    elevenlabs_key: str | None = None
-    agent_id: str | None = None
-    tutor_auto: bool | None = None
 
 
 @app.patch("/api/settings", dependencies=[api])
@@ -647,17 +623,6 @@ def update_settings(body: SettingsUpdate) -> dict:
         config["gemma_api_model"] = body.gemma_api_model
     if body.google_key is not None:
         ai.set_google_key(body.google_key)
-    if body.tutor_brain in tutor.BRAINS:
-        config["tutor_brain"] = body.tutor_brain
-    if body.voice_id is not None:
-        config["voice_id"] = body.voice_id.strip() or voice.DEFAULT_VOICE
-    if body.elevenlabs_key is not None:
-        voice.set_api_key(body.elevenlabs_key)
-    if body.agent_id is not None:
-        config["agent_id"] = body.agent_id.strip()
-    if body.tutor_auto is not None:
-        config["tutor_auto"] = body.tutor_auto
-        _tutor_wake.set()
     core.save_config(config)
     core.save_state(state)
     if body.schedule_active is not None or (body.interval and schedule.is_active()):
@@ -733,155 +698,6 @@ def telegram_test() -> dict:
     return {"ok": True}
 
 
-# --- Study-Tutor --------------------------------------------------------------
-
-
-def tutor_brain() -> tuple[str, str | None]:
-    """Gehirn des Tutors und das passende Modell aus den KI-Einstellungen."""
-    config = core.load_config()
-    brain = config.get("tutor_brain", tutor.DEFAULT_BRAIN)
-    return brain, provider_model(config, brain)
-
-
-@app.get("/api/tutor/status", dependencies=[api])
-def tutor_status(course: str | None = None) -> dict:
-    brain, _ = tutor_brain()
-    gemma = ai.providers()["gemma"]
-    ready = {"gemma": gemma["ready"], "claude": ai.claude_ready(), "openai": bool(ai.openai_key()),
-             "gemini": bool(ai.google_key())}
-    return {**tutor.stats(course or None), "brain": brain, "brain_ready": ready[brain],
-            "voice_ready": bool(voice.api_key()), "agent_ready": bool(voice.api_key() and
-                                                                       core.load_config().get("agent_id")),
-            "auto": {**tutor.progress, "enabled": core.load_config().get("tutor_auto", True),
-                     "gemma_ready": gemma["local"]}}
-
-
-class TutorPrepare(BaseModel):
-    path: str
-
-
-@app.post("/api/tutor/prepare", dependencies=[api])
-def tutor_prepare(body: TutorPrepare) -> dict:
-    """Eine Datei für den Tutor vorbereiten (die Oberfläche ruft das Datei für Datei auf)."""
-    brain, model = tutor_brain()
-    try:
-        return tutor.prepare(mirror_path(body.path), body.path, brain, model)
-    except (tutor.TutorError, ai.AIError) as error:
-        raise HTTPException(400, str(error)) from None
-
-
-@app.get("/api/tutor/next", dependencies=[api])
-def tutor_next(course: str | None = None, exclude: int | None = None, solution: bool = False) -> dict:
-    question = tutor.next_question(course or None, exclude, with_solution=solution)
-    if question is None:
-        raise HTTPException(404, "Noch keine Fragen: erst Material vorbereiten")
-    return question
-
-
-class TutorAnswer(BaseModel):
-    question_id: int
-    text: str
-
-
-@app.post("/api/tutor/answer", dependencies=[api])
-def tutor_answer(body: TutorAnswer) -> dict:
-    brain, model = tutor_brain()
-    try:
-        return tutor.grade(body.question_id, body.text, brain, model)
-    except (tutor.TutorError, ai.AIError) as error:
-        raise HTTPException(400, str(error)) from None
-
-
-@app.post("/api/tutor/ask", dependencies=[api])
-def tutor_ask(body: TutorAnswer) -> dict:
-    brain, model = tutor_brain()
-    try:
-        return tutor.follow_up(body.question_id, body.text, brain, model)
-    except (tutor.TutorError, ai.AIError) as error:
-        raise HTTPException(400, str(error)) from None
-
-
-class TutorTurn(BaseModel):
-    role: Literal["tutor", "user"]
-    text: str = Field(max_length=4000)
-
-
-class TutorChat(BaseModel):
-    text: str = Field("", max_length=4000)
-    history: list[TutorTurn] = Field(default_factory=list, max_length=60)
-    course: str = ""
-    question_id: int | None = None
-
-
-@app.post("/api/tutor/chat", dependencies=[api])
-def tutor_chat(body: TutorChat) -> dict:
-    """Freies Lerngespräch (Push-to-Talk): ein Beitrag rein, Antwort des Tutors raus.
-    Den Verlauf hält der Browser und schickt ihn jedes Mal mit."""
-    brain, model = tutor_brain()
-    try:
-        return tutor.converse(body.text, [t.model_dump() for t in body.history], body.course or None,
-                              body.question_id, brain, model)
-    except (tutor.TutorError, ai.AIError) as error:
-        raise HTTPException(400, str(error)) from None
-
-
-@app.post("/api/tutor/transcribe", dependencies=[api])
-async def tutor_transcribe(request: Request) -> dict:
-    """Rohes Audio aus dem Browser (MediaRecorder) → Text über ElevenLabs."""
-    audio = await request.body()
-    if len(audio) > 25_000_000:
-        raise HTTPException(413, "Aufnahme zu lang")
-    try:
-        return {"text": voice.transcribe(audio, request.headers.get("content-type", ""))}
-    except voice.VoiceError as error:
-        raise HTTPException(400, str(error)) from None
-
-
-class TutorSpeak(BaseModel):
-    text: str
-
-
-@app.post("/api/tutor/speak", dependencies=[api])
-def tutor_speak(body: TutorSpeak) -> Response:
-    try:
-        audio = voice.speak(body.text, core.load_config().get("voice_id"))
-    except voice.VoiceError as error:
-        raise HTTPException(400, str(error)) from None
-    return Response(audio, media_type="audio/mpeg")
-
-
-class TutorRecord(BaseModel):
-    question_id: int
-    answer: str = ""
-    verdict: Literal["correct", "partial", "wrong"]
-    feedback: str = ""
-
-
-@app.post("/api/tutor/record", dependencies=[api])
-def tutor_record(body: TutorRecord) -> dict:
-    """Bewertung des ElevenLabs Agents speichern (Client-Tool record_result)."""
-    try:
-        return tutor.record(body.question_id, body.answer, body.verdict, body.feedback)
-    except tutor.TutorError as error:
-        raise HTTPException(404, str(error)) from None
-
-
-class TutorAgentSession(BaseModel):
-    course: str = ""
-
-
-@app.post("/api/tutor/agent-session", dependencies=[api])
-def tutor_agent_session(body: TutorAgentSession) -> dict:
-    """Alles, was der Browser für ein Gespräch mit dem ElevenLabs Agent braucht. Der API-Key bleibt hier."""
-    try:
-        url = voice.signed_url(core.load_config().get("agent_id", ""))
-    except voice.VoiceError as error:
-        raise HTTPException(400, str(error)) from None
-    return {"signed_url": url, "prompt": tutor.AGENT_PROMPT, "first_message": tutor.AGENT_FIRST_MESSAGE,
-            "dynamic_variables": {"course": body.course or "allen deinen Kursen"}}
-
-
-
 # --- StudyHub (neue Oberfläche) -------------------------------------------------
 
 
@@ -890,10 +706,8 @@ def studyhub_data() -> dict:
     """Alle Daten für ui/studyhub im Format von DATEN und MODUL_DETAILS (siehe docs/studyhub-api.md)."""
     config, cached = core.load_config(), cached_by_path()
     files = [file_info(p, cached) for p in mirror_files()]
-    courses = {f["course"] for f in files}
-    stats = {course: tutor.stats(course) for course in courses}
     status = core.load_state()
-    data = studyhub.overview(config, files, cached, stats, studyhub.load_state(), karten=cards.load(),
+    data = studyhub.overview(config, files, cached, studyhub.load_state(), karten=cards.load(),
                              exams=studyhub.load_exams(), hidden=[file_info(p, cached) for p in mirror_files(True)])
     data["skills"] = studyhub.load_skills()
     data["sync"] = {
@@ -1132,8 +946,8 @@ class StudyHubBrowser(BaseModel):
 
 @app.post("/api/studyhub/open-browser", dependencies=[api])
 def studyhub_open_browser(request: Request, body: StudyHubBrowser) -> dict:
-    """Im App-Fenster gibt es kein Mikrofon: StudyHub an derselben Stelle im Standardbrowser öffnen."""
-    # Nur StudyHub-Adressen wie „#/modul/statistik-i/sprachtutor“ übernehmen, sonst die Startseite
+    """StudyHub an derselben Stelle im Standardbrowser öffnen."""
+    # Nur StudyHub-Adressen wie „#/modul/statistik-i/dokumente“ übernehmen, sonst die Startseite
     erlaubt = body.hash.startswith("#/") and all(c.isalnum() or c in "-_/" for c in body.hash[2:])
     ziel = body.hash if erlaubt else ""
     url = f"{str(request.base_url).rstrip('/')}/ui/studyhub/index.html?t={TOKEN}{ziel}"
@@ -1199,7 +1013,7 @@ def _after_upload(config: dict) -> None:
         state = core.load_state()
         sync.publish(config, state)
         core.save_state(state)
-    _tutor_wake.set()
+    _index_wake.set()
 
 
 class SummaryText(BaseModel):

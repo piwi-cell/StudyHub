@@ -8,7 +8,7 @@
 //   4) Register (Sidebar)
 //   5) Seiten: Startseite, Modulseite
 //   6) Tabs: Übersicht, Dokumente, Lernplan, Zusammenfassung,
-//            Karteikarten, Sprachtutor, Skill hinzufügen, eigene Skills
+//            Karteikarten, Skill hinzufügen, eigene Skills
 //   7) Router (welche Seite?) & Klicks
 //
 // Navigation läuft über den Teil der URL hinter dem #:
@@ -40,8 +40,6 @@ const zustand = {
   // Karteikarten (wird beim ersten Öffnen befüllt)
   karten: null,
 
-  // Sprachtutor
-  tutor: { phase: "start", schritt: -1, ton: true, lauf: 0 },
 
   // Skills
   skills: { fima: [] }, // hinzugefügte Skills pro Modul (echte Kurse: vom Server, live.js)
@@ -79,7 +77,6 @@ function tabGruppen(modulId) {
       tabs: [
         { id: "zusammenfassung", name: "Zusammenfassung", icon: "zusammenfassung" },
         { id: "karteikarten", name: "Karteikarten", icon: "karten" },
-        { id: "sprachtutor", name: "Sprachtutor", icon: "stimme" },
         ...eigeneSkills,
         { id: "skill-hinzufuegen", name: "Skill hinzufügen", icon: "plus", nurIcon: true },
       ],
@@ -172,10 +169,9 @@ function nurText(html) {
   return el.value.replace(/\s+/g, " ").trim();
 }
 
-// Vorlesen. Mit laufender App über ElevenLabs (live.js), sonst mit der Browser-Stimme.
+// Vorlesen mit der Stimme des Systems (Browser-Sprachausgabe).
 // Gibt ein Promise zurück, das fertig ist, wenn der Text zu Ende gesprochen wurde.
 function sprich(text, optionen = {}) {
-  if (LIVE.aktiv && LIVE.voiceReady && !optionen.stumm) return LIVE.sprechen(nurText(text));
   return sprichBrowser(text, optionen);
 }
 
@@ -419,7 +415,6 @@ function seiteModul(modulId, tabId) {
   if (!d) inhalt = hinweisKeineDaten(m);
   else if (tab.skill) inhalt = tabSkill(m, d, tab.skill);
   else if (d.live && tab.id === "zusammenfassung") inhalt = LIVE.tabZusammenfassung(m, d);
-  else if (d.live && tab.id === "sprachtutor") inhalt = LIVE.tabSprachtutor(m, d);
   else inhalt = TAB_INHALT[tab.id](m, d);
 
   // Echte Kurse: Termin von Hand (m.klausur), anklickbar zum Ändern; Beispielmodul: Mock-Termin
@@ -981,7 +976,6 @@ function tabZusammenfassung(m, d) {
           <button class="pille" data-aktion="karten-erstellen" data-modul="${m.id}" data-nr="${t.nr}" ${kartenLaedt ? "disabled" : ""}>
             ${icon(kartenLaedt ? "sync" : "karten", 18)} ${kartenLaedt ? "Karten werden erstellt …" : "Karten erstellen"}
           </button>
-          <a class="knopf-hell" href="#/modul/${m.id}/sprachtutor" data-aktion="tutor-zuruecksetzen">${icon("stimme", 18)} Abfragen lassen</a>
           <button class="knopf-hell" data-aktion="einfacher-erklaeren" data-schluessel="${schluessel}" data-fokus="einfacher"
             aria-pressed="${einfach}">${icon("einfach", 18)} ${einfach ? "Original anzeigen" : "Einfacher erklären"}</button>
           <button class="knopf-hell" data-aktion="vorlesen-thema" data-modul="${m.id}" data-nr="${t.nr}">${icon("lautsprecher", 18)} Vorlesen</button>
@@ -1184,105 +1178,6 @@ function karteBewerten(wert) {
   neuZeichnen("aufdecken");
 }
 
-// ---------- 6f) Tab „Sprachtutor“ ----------
-
-const TUTOR_STATUS = {
-  start: "Bereit, wenn du es bist",
-  spricht: "Tutor spricht …",
-  deinZug: "Tippe aufs Mikrofon und antworte",
-  hoert: "Ich höre zu …",
-  denkt: "Einen Moment …",
-  fertig: "Gespräch beendet · 2 von 2 richtig",
-};
-
-function tabSprachtutor(m, d) {
-  const t = zustand.tutor;
-  const thema = d.themen.find((x) => x.nr === d.tutor.thema);
-  const sichtbar = d.tutor.verlauf.slice(0, t.schritt + 1);
-
-  const blasen = sichtbar
-    .map((z, i) => `
-      <li class="blase blase-${z.von} ${i === t.schritt ? "blase-neu" : ""}">
-        <span class="mini">${z.von === "tutor" ? "Tutor" : "Du"}</span>
-        <p>${z.text}</p>
-      </li>`)
-    .join("");
-
-  const knopf = {
-    start: `<button class="pille" data-aktion="tutor-start">${icon("stimme", 18)} Gespräch starten</button>`,
-    fertig: `
-      <a class="pille" href="#/modul/${m.id}/karteikarten">${icon("karten", 18)} Zur Karteikarte</a>
-      <button class="knopf-hell" data-aktion="tutor-zuruecksetzen">${icon("wiederholen", 18)} Nochmal</button>`,
-  }[t.phase] || "";
-
-  return `
-    <div class="tutor">
-      <section class="tutor-buehne glas mit-aura">
-        <div class="aura" aria-hidden="true"></div>
-        <div class="tutor-oben">
-          <span class="hinweis-chip">${icon("zusammenfassung", 16)} Thema ${thema.nr} · ${thema.titel}</span>
-          <button class="icon-knopf" data-aktion="tutor-ton" aria-pressed="${!t.ton}"
-            aria-label="${t.ton ? "Ton ausschalten" : "Ton einschalten"}">${icon(t.ton ? "lautsprecher" : "stumm", 18)}</button>
-        </div>
-        <button class="orb orb-${t.phase}" data-aktion="tutor-mikro" ${t.phase === "deinZug" ? "" : "disabled"}
-          aria-label="Antworten">
-          <span class="orb-welle"></span><span class="orb-welle"></span>
-          <span class="orb-kern">${icon("stimme", 36)}</span>
-        </button>
-        <p class="tutor-status" role="status">${TUTOR_STATUS[t.phase]}</p>
-        <div class="tutor-knoepfe">${knopf}</div>
-      </section>
-
-      <section class="tutor-verlauf" aria-label="Gesprächsverlauf">
-        <h2 class="mini-titel">Gespräch</h2>
-        ${blasen ? `<ol class="blasen">${blasen}</ol>` : `<p class="klein">Der Tutor stellt dir Fragen zu deiner Zusammenfassung. Du antwortest einfach per Stimme.</p>`}
-      </section>
-    </div>`;
-}
-
-// Ablauf des Demo-Gesprächs. "lauf" verhindert, dass ein abgebrochenes Gespräch weiterläuft.
-async function tutorSprechen() {
-  const t = zustand.tutor;
-  const lauf = t.lauf;
-  const verlauf = MODUL_DETAILS.fima.tutor.verlauf;
-  t.phase = "spricht";
-  neuZeichnen();
-  await sprich(verlauf[t.schritt].text, { stumm: !t.ton });
-  if (lauf !== t.lauf) return;
-  t.phase = t.schritt >= verlauf.length - 1 ? "fertig" : "deinZug";
-  neuZeichnen();
-}
-
-async function tutorStart() {
-  const t = zustand.tutor;
-  t.schritt = 0;
-  await tutorSprechen();
-}
-
-async function tutorAntworten() {
-  const t = zustand.tutor;
-  const lauf = t.lauf;
-  t.phase = "hoert";
-  neuZeichnen();
-  await pause(2200); // simuliertes Zuhören
-  if (lauf !== t.lauf) return;
-  t.schritt++; // deine Antwort erscheint
-  t.phase = "denkt";
-  neuZeichnen();
-  await pause(900);
-  if (lauf !== t.lauf) return;
-  t.schritt++; // Antwort des Tutors
-  await tutorSprechen();
-}
-
-function tutorZuruecksetzen() {
-  const t = zustand.tutor;
-  t.lauf++;
-  t.phase = "start";
-  t.schritt = -1;
-  if ("speechSynthesis" in window) speechSynthesis.cancel();
-}
-
 // ---------- 6g) Tab „+ Skill hinzufügen“ ----------
 
 function tabSkillHinzufuegen(m, d) {
@@ -1345,7 +1240,7 @@ function tabSkill(m, d, skillId) {
   } else if (skillId === "glossar" && !d.glossar.length) {
     inhalt = leer("Das Glossar füllt sich aus den „Wichtigen Begriffen“ deiner Zusammenfassungen. Erstelle zuerst eine Zusammenfassung.");
   } else if (skillId === "probeklausur" && !d.probeklausur.length) {
-    inhalt = leer("Die Probeklausur für echte Kurse kommt als Nächstes: Sie nutzt die Fragen des Sprachtutors und Altklausuren.");
+    inhalt = leer("Die Probeklausur für echte Kurse kommt als Nächstes: Sie nutzt deine Lernkarten und Altklausuren.");
   } else if (skillId === "formelsammlung") {
     inhalt = d.themen.map((t) => `
       <section class="zf-abschnitt">
@@ -1426,7 +1321,6 @@ const TAB_INHALT = {
   lernplan: tabLernplan,
   zusammenfassung: tabZusammenfassung,
   karteikarten: tabKarteikarten,
-  sprachtutor: tabSprachtutor,
   "skill-hinzufuegen": tabSkillHinzufuegen,
 };
 
@@ -1474,11 +1368,6 @@ function neuZeichnen(fokusErsatz) {
 
 window.addEventListener("hashchange", () => {
   zustand.animieren = true;
-  // Gespräch des Sprachtutors abbrechen, wenn man den Tab verlässt
-  if (aktuelleRoute().tab !== "sprachtutor") {
-    if (zustand.tutor.phase !== "start") tutorZuruecksetzen();
-    if (LIVE.aktiv) LIVE.tutorStopp();
-  }
   route();
   sidebarMobil(false);
   window.scrollTo({ top: 0 });
@@ -1609,23 +1498,6 @@ document.addEventListener("click", (event) => {
     }
     case "karte-melden":
       zeigeToast("Danke! Die Karte wird geprüft.");
-      break;
-
-    // --- Sprachtutor ---
-    case "tutor-start":
-      tutorStart();
-      break;
-    case "tutor-mikro":
-      if (zustand.tutor.phase === "deinZug") tutorAntworten();
-      break;
-    case "tutor-ton":
-      zustand.tutor.ton = !zustand.tutor.ton;
-      if (!zustand.tutor.ton && "speechSynthesis" in window) speechSynthesis.cancel();
-      neuZeichnen();
-      break;
-    case "tutor-zuruecksetzen":
-      tutorZuruecksetzen();
-      if (el.tagName === "BUTTON") neuZeichnen();
       break;
 
     // --- Skills ---

@@ -22,6 +22,7 @@ def test_every_locked_package_is_listed_in_third_party_notices():
 
 def test_license_and_vendored_license_exist():
     assert "Alle Rechte vorbehalten" in (ROOT / "LICENSE").read_text(encoding="utf-8")
-    for vendor in (ROOT / "ui/vendor").iterdir():
+    vendored = (ROOT / "ui/vendor").iterdir() if (ROOT / "ui/vendor").is_dir() else []
+    for vendor in vendored:
         assert (vendor / "LICENSE").exists(), f"{vendor.name}: Lizenztext fehlt"
         assert vendor.name.rsplit("-", 1)[0] in (ROOT / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8")

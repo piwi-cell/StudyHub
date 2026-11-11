@@ -1,14 +1,12 @@
 """Legt Beispieldaten für die Demo an (ILIAS_SYNC_HOME, standardmäßig ./demo-data).
 
 Die PDFs entstehen mit dem macOS-Druckfilter aus Text, damit die KI echten Inhalt hat.
-Bereits vorhandene Daten bleiben unverändert. Der Study-Tutor bekommt feste Demo-Fragen,
-damit er sofort ohne KI-Aufruf abfragen kann.
+Bereits vorhandene Daten bleiben unverändert.
 """
 
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
 from datetime import datetime, timedelta
@@ -132,41 +130,6 @@ bei gleichem alpha eine höhere Power in der getesteten Richtung.
 """,
 }
 
-# Feste Fragen für den Study-Tutor: Frage, Musterlösung, Seite
-DEMO_QUESTIONS = {
-    "Financial Accounting/Vorlesung/03 Die Bilanz.pdf": [
-        ("Was stellt die Bilanz gegenüber?",
-         "Vermögen (Aktiva) und Kapital (Passiva) zu einem Stichtag; es gilt Aktiva = Passiva.", 1),
-        ("Was ist der Unterschied zwischen Anlage- und Umlaufvermögen?",
-         "Anlagevermögen dient dem Betrieb dauerhaft (z. B. Maschinen), Umlaufvermögen wird kurzfristig "
-         "umgeschlagen (z. B. Vorräte, Forderungen, Bank).", 1),
-        ("Was besagt die goldene Bilanzregel?",
-         "Langfristiges Vermögen soll durch langfristiges Kapital finanziert sein.", 1),
-    ],
-    "Financial Accounting/Übung/Übungsblatt 3.pdf": [
-        ("Welche Art von Bilanzveränderung ist der Kauf eines Firmenwagens per Banküberweisung?",
-         "Ein Aktivtausch: Fuhrpark nimmt zu, Bank nimmt ab, die Bilanzsumme bleibt gleich.", 1),
-    ],
-    "Mikroökonomik A/Vorlesung/05 Marktgleichgewicht.pdf": [
-        ("Was entsteht, wenn der Preis über dem Gleichgewichtspreis liegt?",
-         "Ein Angebotsüberschuss.", 1),
-        ("Was ist die Konsumentenrente?",
-         "Die Differenz zwischen Zahlungsbereitschaft und tatsächlichem Preis, die Fläche zwischen "
-         "Nachfragekurve und Preis.", 1),
-        ("Welche Marktseite trägt bei einer Mengensteuer den größeren Teil der Steuerlast?",
-         "Die Seite mit der geringeren Preiselastizität.", 1),
-    ],
-    "Statistik I/Vorlesung/07 Hypothesentests.pdf": [
-        ("Was ist ein Fehler 1. Art?",
-         "Die Nullhypothese wird verworfen, obwohl sie wahr ist; seine Wahrscheinlichkeit ist das "
-         "Signifikanzniveau alpha.", 1),
-        ("Wann wird die Nullhypothese mit dem p-Wert verworfen?",
-         "Wenn der p-Wert kleiner als das Signifikanzniveau alpha ist.", 1),
-        ("Was ist die Teststärke (Power)?",
-         "Eins minus die Wahrscheinlichkeit für den Fehler 2. Art, also 1 - beta.", 1),
-    ],
-}
-
 LOG = [
     "ILIAS: abgeglichen, 0 neu, 0 geändert",
     "ILIAS: abgeglichen, 2 neu, 0 geändert",
@@ -211,27 +174,5 @@ def main() -> None:
     print(f"Demo-Daten angelegt: {HOME}")
 
 
-def seed_tutor() -> None:
-    """Demo-Fragen in den Study-Tutor übernehmen (läuft bei jedem Demo-Start, legt nichts doppelt an)."""
-    os.environ["ILIAS_SYNC_HOME"] = str(HOME)  # core liest den Datenordner beim Import
-    root = Path(__file__).resolve().parent.parent
-    sys.path[:0] = [str(root / "core"), str(root / "server")]
-    import tutor
-
-    added = 0
-    for relative, questions in DEMO_QUESTIONS.items():
-        path = MIRROR / relative
-        if not path.exists():
-            continue
-        try:
-            added += tutor.add_fixed_questions(path, relative, [
-                {"question": q, "answer": a, "page": page} for q, a, page in questions])
-        except Exception as error:  # Demo soll trotzdem starten
-            print(f"Tutor-Demo-Fragen für {relative} übersprungen: {error}")
-    if added:
-        print(f"{added} Demo-Fragen für den Study-Tutor angelegt")
-
-
 if __name__ == "__main__":
     main()
-    seed_tutor()

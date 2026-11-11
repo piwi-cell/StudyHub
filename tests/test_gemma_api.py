@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 import ai
 import core
-import tutor
 from app import app
 
 AUTH = {"x-app-token": "test-token"}
@@ -81,11 +80,15 @@ def test_json_tasks_put_schema_in_prompt_and_unwrap_fences(gemini):
         ai.run(path, relative, "thema", "gemma")
 
 
-def test_model_choice_and_tutor_complete(gemini):
+GRADE_SCHEMA = {"type": "object", "properties": {"verdict": {"type": "string"}, "feedback": {"type": "string"}},
+                "required": ["verdict", "feedback"]}
+
+
+def test_model_choice_and_short_complete(gemini):
     calls, replies = gemini
     core.save_config({**core.load_config(), "gemma_api_model": "gemma-4-31b-it"})
     replies.append(FakeResponse(200, _reply('{"verdict": "correct", "feedback": "Gut"}')))
-    result = ai.complete("gemma", "System", "Bewerte", tutor.GRADE_SCHEMA)
+    result = ai.complete("gemma", "System", "Bewerte", GRADE_SCHEMA)
     assert result == {"verdict": "correct", "feedback": "Gut"}
     assert calls[0]["url"].endswith("/gemma-4-31b-it:generateContent")
     assert calls[0]["body"]["generationConfig"]["maxOutputTokens"] == 2000
@@ -135,7 +138,7 @@ def test_settings_store_key_in_keyring_and_auto_stays_local(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setattr(ai, "ollama_models", lambda: None)
     client = TestClient(app)
-    body = {"google_key": "AIza-geheim", "gemma_api_model": "gemma-4-31b-it", "tutor_brain": "gemma"}
+    body = {"google_key": "AIza-geheim", "gemma_api_model": "gemma-4-31b-it"}
     assert client.patch("/api/settings", json=body, headers=AUTH).status_code == 200
     assert ai.google_key() == "AIza-geheim" and "AIza-geheim" not in core.CONFIG_FILE.read_text(encoding="utf-8")
 
@@ -143,10 +146,6 @@ def test_settings_store_key_in_keyring_and_auto_stays_local(monkeypatch):
     assert settings["has_google_key"] is True and settings["gemma_api_model"] == "gemma-4-31b-it"
     assert "AIza-geheim" not in json.dumps(settings)
     assert client.get("/api/ai/providers", headers=AUTH).json()["gemma"]["api"] is True
-
-    # Der Tutor kann mit der API bewerten, die automatische Vorbereitung läuft aber nur lokal
-    status = client.get("/api/tutor/status", headers=AUTH).json()
-    assert status["brain_ready"] is True and status["auto"]["gemma_ready"] is False
 
     client.patch("/api/settings", json={"gemma_api_model": "gemma-99"}, headers=AUTH)
     assert ai.gemma_api_model() == "gemma-4-31b-it"  # unbekanntes Modell wird ignoriert

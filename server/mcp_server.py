@@ -2,7 +2,7 @@
 
 Claude Desktop startet dieses Skript selbst und spricht über stdin/stdout mit ihm. Claude liest
 damit Kurse, Dateien und den StudyHub-Stand und speichert Lernthemen und Lernkarten in den
-KI-Cache der jeweiligen Datei, dazu Prüfungsfragen für den Sprachtutor (tutor.sqlite3).
+KI-Cache der jeweiligen Datei.
 Die App zeigt sie danach wie selbst erzeugte Ergebnisse an.
 Es gibt bewusst keine Werkzeuge zum Löschen, Senden oder für Einstellungen.
 
@@ -38,7 +38,6 @@ import ai  # noqa: E402
 import app  # noqa: E402  (Hilfen wie in der API: mirror_path, file_info, StudyHub-Daten)
 import core  # noqa: E402
 import integrations  # noqa: E402
-import tutor  # noqa: E402
 
 PROVIDER = "claude-desktop"
 MAX_FILES = 500
@@ -59,9 +58,8 @@ mcp = MCPServer(
         "Zugriff auf die ILIAS-Kursunterlagen der Uni Mannheim aus der App StudyHub. "
         "Ablauf: list_courses → list_files (Pfad suchen) → read_file (Text lesen) → save_thema, "
         "save_summary bzw. save_flashcards. Steht der Inhalt einer PDF nicht im Text (gescannte Folien, "
-        "Grafiken, Kästen als Bild), die Seiten mit view_pages als Bilder ansehen. Für den Sprachtutor "
-        "(auch den ElevenLabs Agent) Prüfungsfragen mit save_tutor_questions speichern; list_files zeigt je "
-        "Datei tutor_fragen. Arbeite nur mit dem Inhalt des Dokuments, schreibe auf Deutsch (Fachbegriffe "
+        "Grafiken, Kästen als Bild), die Seiten mit view_pages als Bilder ansehen. Arbeite nur mit dem Inhalt "
+        "des Dokuments, schreibe auf Deutsch (Fachbegriffe "
         "eines englischen Dokuments englisch lassen) und nenne Seitenzahlen. Gespeicherte Ergebnisse "
         "erscheinen sofort in StudyHub. Will die Person lernen oder Stoff verstehen, arbeite als Lerncoach "
         "(Prompt lerncoach): eine Frage auf einmal, erst Hinweis, dann Lösung."
@@ -84,10 +82,8 @@ def _resolve(path: str) -> tuple[Path, str]:
 def _files() -> list[dict]:
     files = app.list_files()["files"]
     cached = app.cached_by_path()
-    questions = tutor.counts_by_path()
-    for f in files:  # app.file_info kennt das Lernthema und die Tutor-Fragen noch nicht
+    for f in files:  # app.file_info kennt das Lernthema noch nicht
         f["ai"]["thema"] = bool((cached.get(f["path"]) or {}).get("thema"))
-        f["tutor_fragen"] = questions.get(f["path"], 0)
         f["geaendert"] = time.strftime("%Y-%m-%d", time.localtime(f.pop("mtime")))
     return files
 
@@ -379,35 +375,6 @@ def save_flashcards(
     Beispiel: [{"front": "Was ist ein Mindestpreis?", "back": "Ein staatlich festgelegter Preis, der nicht
     unterschritten werden darf; liegt er über dem Gleichgewichtspreis, entsteht ein Angebotsüberschuss."}]"""
     return _store(path, "flashcards", {"cards": [c.model_dump() for c in cards]}, overwrite)
-
-
-class TutorFrage(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    question: str = Field(min_length=1, max_length=500, description="Prüfungsfrage, die man mündlich beantworten kann")
-    answer: str = Field(min_length=1, max_length=1500, description="Kurze Musterlösung, 1–3 Sätze")
-    page: int = Field(ge=1, le=10000, description="Seite, auf der die Antwort steht")
-
-
-@mcp.tool(annotations=ADD)
-def save_tutor_questions(
-    path: Annotated[str, Field(description="Pfad wie in list_files (PDF- oder Textdatei)")],
-    questions: Annotated[list[TutorFrage], Field(min_length=1, max_length=20, description=(
-        f"{tutor.QUESTIONS_PER_FILE} Prüfungsfragen zu den wichtigsten Inhalten, nichts Organisatorisches"))],
-    add: Annotated[bool, Field(description="Zu vorhandenen Tutor-Fragen dazunehmen (sonst Fehler)")] = False,
-) -> dict:
-    """Speichert Prüfungsfragen mit Musterlösung für den Sprachtutor (Abfragen und ElevenLabs Agent).
-    questions: 1–20 Objekte {"question", "answer", "page"}; question mündlich beantwortbar (≤ 500 Zeichen),
-    answer 1–3 Sätze (≤ 1500), page = Seite mit der Antwort (ab 1)."""
-    file, relative = _resolve(path)
-    if file.suffix.lower() not in tutor.EXTENSIONS:
-        raise ToolError(f"Der Tutor kann nur {', '.join(sorted(tutor.EXTENSIONS))}-Dateien abfragen")
-    try:
-        result = tutor.save_questions(file, relative, [q.model_dump() for q in questions], PROVIDER, add)
-    except tutor.TutorError as error:
-        raise ToolError(str(error)) from None
-    core.log(f"MCP: {result['added']} Tutor-Fragen für {relative} gespeichert")
-    return {"gespeichert": True, "pfad": relative, "neu": result["added"], "fragen_gesamt": result["questions"],
-            "hinweis": "Der Sprachtutor fragt sie ab, sobald StudyHub neu lädt."}
 
 
 # --- Prompts ------------------------------------------------------------------

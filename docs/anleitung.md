@@ -1,7 +1,7 @@
 # StudyHub · Anleitung
 
 StudyHub lädt die Dateien deiner ILIAS-Kurse der Uni Mannheim auf deinen Mac, sortiert sie in
-Kursordner und macht daraus auf Wunsch mit KI Zusammenfassungen, Lernkarten und Tutor-Fragen.
+Kursordner und macht daraus auf Wunsch mit KI Zusammenfassungen und Lernkarten.
 
 ## Voraussetzungen
 
@@ -91,14 +91,6 @@ Die Startseite sammelt unter **Heute dran**, was ansteht: neue Dateien und fäll
 - Karten aus **Anki** übernehmen oder dorthin schicken („Mit Anki verbinden“, braucht das Add-on AnkiConnect)
   oder als Textdatei importieren und „Für Anki exportieren“.
 
-### Tab „Sprachtutor“
-- Der Tutor fragt dich mündlich oder schriftlich ab und bewertet deine Antwort mit Quelle. Dafür braucht er
-  Prüfungsfragen: **Material vorbereiten** erzeugt sie mit der gewählten KI. Mit Gemma über Ollama bereitet
-  StudyHub sie nach jedem Abgleich automatisch vor.
-- **Frage für Frage** (Text oder Mikrofon gedrückt halten) oder **Lerngespräch** (freies Gespräch mit Nachfragen).
-  Mit ElevenLabs spricht der Tutor mit natürlicher Stimme; ohne Key liest die Stimme des Systems vor.
-- Das **Mikrofon** geht nur im Browser, nicht im App-Fenster. StudyHub bietet an, dieselbe Seite im Browser zu öffnen.
-
 ### Skills (weitere Tabs)
 Über **+** in der Tableiste fügst du einem Modul Tabs hinzu: **Formelsammlung**, **Mindmap**, **Glossar** (alle aus
 deinen Lernthemen) und **Übungsaufgaben** (Übungsblätter und Tutorien des Kurses). „Tab entfernen“ blendet ihn wieder aus.
@@ -125,7 +117,7 @@ wenn ein Bereich voll ist und wenn dort wieder Platz ist. Der Bot antwortet, sol
 ## Claude Desktop statt API-Key
 
 Hast du ein Claude-Abo (Pro oder Max), kann **Claude Desktop** mit deinen Kursunterlagen arbeiten, ohne
-API-Key und ohne API-Kosten: Lernthemen, Lernkarten und Tutor-Fragen erstellen und in der App speichern.
+API-Key und ohne API-Kosten: Lernthemen und Lernkarten erstellen und in der App speichern.
 
 1. Claude Desktop von claude.com/download installieren und anmelden.
 2. In StudyHub unter Einstellungen › KI › Claude Desktop auf **Einrichten** klicken.
@@ -144,7 +136,6 @@ Claude Desktop fragt vor jedem Zugriff auf die Unterlagen nach deiner Erlaubnis.
 | API-Keys, Telegram-Token | Schlüsselbund; nie in Dateien oder Protokollen |
 | Text aus Kursunterlagen | Nur wenn du eine KI-Funktion nutzt: an den gewählten Anbieter, bei gescannten Folien die PDF selbst |
 | Gemma über Ollama | Bleibt komplett auf dem Mac |
-| Sprachtutor | Deine Sprachaufnahme und die Antworttexte gehen an ElevenLabs (nur wenn eingerichtet) |
 | Claude Desktop | Nur was Claude über „studyhub“ liest, und nur nach deiner Erlaubnis; geht an Anthropic wie jeder Claude-Chat |
 | Telegram, reMarkable | Nur was du selbst schickst bzw. was der Bot auf deine Befehle antwortet |
 
@@ -163,8 +154,7 @@ Die App selbst kostet nichts. KI-Anbieter rechnen über deinen API-Key ab, nach 
 
 Jedes Ergebnis wird nur einmal pro Dateiinhalt erzeugt und dann wiederverwendet. Einstellungen › KI zeigt eine
 Kostenschätzung für den Monat (nach Listenpreisen, ohne Gewähr; die echte Abrechnung steht beim Anbieter). Bei
-Gemini gelten Einführungspreise, die sich zum 1.12.2026 bzw. 1.1.2027 verdoppeln. Gespräche im Sprachtutor
-(ElevenLabs) und über Claude Desktop sind in der Schätzung nicht enthalten. Setze beim Anbieter ein
+Gemini gelten Einführungspreise, die sich zum 1.12.2026 bzw. 1.1.2027 verdoppeln. Gespräche über Claude Desktop sind in der Schätzung nicht enthalten. Setze beim Anbieter ein
 Ausgabenlimit, wenn du sicher gehen willst.
 
 ## Häufige Fragen
