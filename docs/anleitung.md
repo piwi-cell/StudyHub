@@ -42,7 +42,6 @@ Dateien, Lernstand und Zugangsdaten bleiben. Danach:
 
 - StudyHub.app ins Dock ziehen (das alte Symbol verschwindet).
 - Fragt macOS nach dem Schlüsselbund: „Immer erlauben“ (das Programm liegt jetzt an einer anderen Stelle).
-- Mit Claude Desktop: Einstellungen › KI › Claude Desktop › „Aktualisieren“, dann Claude Desktop neu starten.
 - Anki: Neue Karten landen im Stapel „StudyHub::<Kurs>“ statt „ILIAS-Lerner::<Kurs>“.
 
 ## Entfernen
@@ -111,21 +110,24 @@ wenn ein Bereich voll ist und wenn dort wieder Platz ist. Der Bot antwortet, sol
 - **reMarkable**: per USB (Webinterface am Tablet einschalten) oder über die reMarkable-App für macOS.
 - **GoodNotes**: neue PDFs automatisch importieren (Goodnotes für Mac ab macOS 15.7).
 
-### Claude als Lerncoach
-**✦ Claude** oben rechts öffnet Claude Desktop mit einem Lerncoach, der deine Unterlagen kennt (siehe nächster Abschnitt).
+## KI mit dem Claude-Abo (ohne API-Key)
 
-## Claude Desktop statt API-Key
+Standard ist **Claude (Abo)**: StudyHub nutzt dafür Claude Code im Hintergrund (headless) mit deinem
+Claude-Abo (Pro oder Max). Es gibt keine Kosten pro Anfrage, es zählt dein Abo-Kontingent.
 
-Hast du ein Claude-Abo (Pro oder Max), kann **Claude Desktop** mit deinen Kursunterlagen arbeiten, ohne
-API-Key und ohne API-Kosten: Lernthemen und Lernkarten erstellen und in der App speichern.
+1. Claude Code installiert der StudyHub-Installer mit.
+2. Einstellungen › KI › Claude (Abo) › **Anmelden**: Im Terminal bestätigen, im Browser mit deinem Claude-Konto
+   anmelden, danach in StudyHub **Prüfen**.
 
-1. Claude Desktop von claude.com/download installieren und anmelden.
-2. In StudyHub unter Einstellungen › KI › Claude Desktop auf **Einrichten** klicken.
-3. Claude Desktop mit ⌘Q beenden und neu öffnen.
+Damit laufen Zusammenfassungen, Lernkarten und die Skills **Formelsammlung**, **Mindmap**, **Glossar** und
+**Übungsaufgaben**. Die Skills liest Claude aus allen Unterlagen des Kurses („Mit KI aus allen Unterlagen
+erstellen“ im jeweiligen Tab).
 
-Danach in Claude zum Beispiel schreiben: „Erstelle für Statistik I ein Lernthema aus der Vorlesung 07 und
-speichere es.“ Oder in StudyHub oben rechts auf **✦ Claude** klicken: Claude startet dann als Lerncoach.
-Claude Desktop fragt vor jedem Zugriff auf die Unterlagen nach deiner Erlaubnis. Mehr: `docs/mcp.md`.
+**Markdown-Fassungen:** Jedes Dokument (aus ILIAS und eigene Dateien) legt StudyHub zusätzlich als Markdown ab,
+Seiten als „## Seite n“, unter `~/Library/Application Support/ILIAS-Sync/Markdown/<Kurs>/…`. Die KI arbeitet mit
+diesen schlanken Textfassungen statt mit den PDFs, das spart viel Kontingent. Auch andere KI-Programme können den
+Ordner nutzen (Einstellungen › KI › Markdown für KI-Werkzeuge › Ordner öffnen). Gescannte Folien überträgt Claude
+beim ersten Mal selbst in Markdown. Die PDFs bleiben für dich unverändert.
 
 ## Datenschutz: was wohin geht
 
@@ -136,7 +138,7 @@ Claude Desktop fragt vor jedem Zugriff auf die Unterlagen nach deiner Erlaubnis.
 | API-Keys, Telegram-Token | Schlüsselbund; nie in Dateien oder Protokollen |
 | Text aus Kursunterlagen | Nur wenn du eine KI-Funktion nutzt: an den gewählten Anbieter, bei gescannten Folien die PDF selbst |
 | Gemma über Ollama | Bleibt komplett auf dem Mac |
-| Claude Desktop | Nur was Claude über „studyhub“ liest, und nur nach deiner Erlaubnis; geht an Anthropic wie jeder Claude-Chat |
+| Claude (Abo) | Nur wenn du eine KI-Funktion nutzt: die Markdown-Fassung der Unterlagen an Anthropic, wie bei jedem Claude-Chat |
 | Telegram, reMarkable | Nur was du selbst schickst bzw. was der Bot auf deine Befehle antwortet |
 
 Die App öffnet keinen Zugang von außen: Ihr Server hört nur auf dem eigenen Mac (`127.0.0.1`). Was ein
@@ -154,7 +156,7 @@ Die App selbst kostet nichts. KI-Anbieter rechnen über deinen API-Key ab, nach 
 
 Jedes Ergebnis wird nur einmal pro Dateiinhalt erzeugt und dann wiederverwendet. Einstellungen › KI zeigt eine
 Kostenschätzung für den Monat (nach Listenpreisen, ohne Gewähr; die echte Abrechnung steht beim Anbieter). Bei
-Gemini gelten Einführungspreise, die sich zum 1.12.2026 bzw. 1.1.2027 verdoppeln. Gespräche über Claude Desktop sind in der Schätzung nicht enthalten. Setze beim Anbieter ein
+Gemini gelten Einführungspreise, die sich zum 1.12.2026 bzw. 1.1.2027 verdoppeln. Anfragen über das Claude-Abo kosten nichts extra und sind in der Schätzung nicht enthalten. Setze beim Anbieter ein
 Ausgabenlimit, wenn du sicher gehen willst.
 
 ## Häufige Fragen

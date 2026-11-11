@@ -34,6 +34,17 @@ VORLESUNG = re.compile(r"vorlesung|folien|skript|lecture|slides", re.IGNORECASE)
 esc = html.escape
 
 
+def escape_tree(value):
+    """Alle Texte in verschachtelten KI-Ergebnissen HTML-maskieren (Zahlen und Wahrheitswerte bleiben)."""
+    if isinstance(value, str):
+        return esc(value)
+    if isinstance(value, list):
+        return [escape_tree(v) for v in value]
+    if isinstance(value, dict):
+        return {k: escape_tree(v) for k, v in value.items()}
+    return value
+
+
 # --- Lernplan-Status (pro Datei: status, notiz) -------------------------------
 
 

@@ -61,9 +61,9 @@ def no_spotlight(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def no_claude_desktop(monkeypatch):
-    """Nie die echte Konfiguration von Claude Desktop lesen oder schreiben."""
-    import integrations
+def no_claude_cli(monkeypatch):
+    """Nie die echte Claude-Code-Kommandozeile aufrufen (Abo, Anmeldung). Tests ersetzen claude_cli.run selbst."""
+    import claude_cli
 
-    monkeypatch.setattr(integrations, "CLAUDE_CONFIG", HOME / "Claude/claude_desktop_config.json")
-    monkeypatch.setattr(integrations, "CLAUDE_APPS", ())
+    monkeypatch.setattr(claude_cli, "binary", lambda: None)
+    monkeypatch.setattr(claude_cli, "_status", {"checked": 0.0, "value": None})

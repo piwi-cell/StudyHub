@@ -92,12 +92,24 @@ D Integrationen (`int/`). Stretch-Ziele sind mit ⭐ markiert.
 ### H11 · ⭐ MCP-Server für Claude Desktop (Claude-Abo statt API-Key)
 **Verantwortlich:** C · Doku: `docs/mcp.md` · vorgezogen aus der Roadmap (Punkt 4)
 
+**Stand 11.11.2026:** ersetzt durch H13 (Claude-Abo über Claude Code headless); MCP-Server und Abhängigkeit `mcp` entfernt.
+
 - [x] `server/mcp_server.py` (stdio): Kurse, Dateien, Dateitext, StudyHub-Stand lesen
 - [x] Schreiben nur in den KI-Cache: `save_thema`, `save_flashcards`; erscheint in StudyHub
 - [x] Tests ohne Netz, inklusive stdio-Durchlauf
 - [x] Knopf „✦ Claude“ in StudyHub: neuer Chat in Claude Desktop als Lerncoach, dazu MCP-Prompt `lerncoach`
 - [ ] Live-Test in Claude Desktop
 - [ ] Neue Abhängigkeit `mcp` im Team bestätigt
+
+### H13 · Claude-Abo headless statt MCP, Markdown-Fassungen, Kurs-Skills mit KI
+**Branch:** `ki/claude-headless`
+
+- [x] Anbieter „Claude (Abo)“ über `claude -p` (Claude Code), Standard für alle KI-Funktionen
+- [x] Anmeldung und Status in Einstellungen › KI und im Einrichtungsassistenten
+- [x] Markdown-Fassung jedes Dokuments (ILIAS und eigene), im Hintergrund; gescannte PDFs überträgt Claude
+- [x] Formelsammlung, Mindmap, Glossar, Übungsaufgaben mit KI über alle Kursunterlagen
+- [x] MCP-Server, Knopf „✦ Claude“ und Abhängigkeit `mcp` entfernt
+- [ ] Live-Test mit angemeldetem Claude-Abo auf dem Mac (Zusammenfassung, Karten, alle vier Skills, gescannte PDF)
 
 ### H12 · Gemini als vierter KI-Anbieter
 **Verantwortlich:** B

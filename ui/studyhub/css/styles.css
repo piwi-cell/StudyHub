@@ -1357,6 +1357,9 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
 .skill-kopf { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .skill-kopf h2 { display: flex; align-items: center; gap: 10px; font-size: var(--gr-titel); }
 .skill-kopf h2 .icon { color: var(--gruen); }
+.skill-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; }
+.aufgabe-karte details { margin-top: 8px; }
+.aufgabe-karte summary { cursor: pointer; color: var(--body); }
 
 .skill-raster {
   display: grid;
@@ -1688,8 +1691,8 @@ a.avatar { display: grid; place-items: center; text-decoration: none; }
 }
 @media (max-width: 1100px) {
   .logo { min-width: 0; }
-  #sync-knopf .knopf-text, #claude-knopf .knopf-text { display: none; }
-  #sync-knopf, #claude-knopf { width: 40px; padding: 0; justify-content: center; }
+  #sync-knopf .knopf-text { display: none; }
+  #sync-knopf { width: 40px; padding: 0; justify-content: center; }
   .widget-raster { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -1697,13 +1700,13 @@ a.avatar { display: grid; place-items: center; text-decoration: none; }
   .nur-mobil { display: inline-grid; }
   .rahmen { grid-template-columns: 1fr; padding: 8px 16px 32px; }
   .topbar { padding: 12px 16px; gap: 12px; }
-  .logo span:last-child, .suche kbd, #sync-knopf .knopf-text, #claude-knopf .knopf-text { display: none; }
+  .logo span:last-child, .suche kbd, #sync-knopf .knopf-text { display: none; }
   .logo { flex-shrink: 0; }
   .suche-rahmen { min-width: 0; }
   .suche { padding: 0 12px; }
   .suche input { width: 100%; }
   .topbar-rechts { gap: 8px; flex-shrink: 0; }
-  #sync-knopf, #claude-knopf { width: 40px; padding: 0; justify-content: center; }
+  #sync-knopf { width: 40px; padding: 0; justify-content: center; }
 
   /* Sidebar wird zum ausklappbaren Menü */
   .sidebar {
