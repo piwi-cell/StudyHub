@@ -24,7 +24,7 @@ Mit Sitzungs-Token holt StudyHub alles aus der lokalen API (`server/app.py`, For
 | Weitergeben (im Lernthema) | `POST /api/share` `{ path, task: "thema" \| "summary" \| "flashcards" \| "original", target: "telegram" \| "remarkable" }` |
 | Lernthema (Kernidee, Formeln, Klausurfalle, Einfacher erklären) | `/api/ai/run` mit `task: "thema"` |
 | Karteikarten erstellen | `/api/ai/run` mit `task: "flashcards"` |
-| Top-Bar: „✦ Claude“ (Lerncoach in Claude Desktop über den MCP-Server) | `POST /api/claude/open` |
+| Skills mit KI über den ganzen Kurs | `POST /api/studyhub/skill-erstellen` |
 | Karteikarten mit Lernstand (SM-2), Anki, Textdateien | `/api/cards/*`, `/api/anki/*` |
 | Klausurtermin im Modulkopf | `PATCH /api/studyhub/klausur` |
 | Seite „Bibliotheken“ (`js/bibliotheken.js`): Auslastung der UB, Verlauf je Wochentag, Telegram-Bot (`/bib`, Meldungen voll/wieder Platz) | `/api/libraries*`, `/api/telegram/connect` |

@@ -60,7 +60,8 @@ Formeln enthalten nur `<sub>`/`<sup>`, Kernideen nur `<b>` und `<br>`.
 | „Karten erstellen“ | `POST /api/ai/run` `{ path, task: "flashcards" }`, danach neu laden |
 | „Einfacher erklären“ | steckt im Thema (`einfacher`); fehlt es, erst `task: "thema"` erzeugen |
 | Vorlesen (`sprich`) | Stimme des Systems (Browser-Sprachausgabe), kein Server-Aufruf |
-| „✦ Claude“ (Top-Bar) | `POST /api/claude/open` `{ kurs? }` öffnet Claude Desktop mit neuem Lerncoach-Chat (`kurs` nur, wenn es ihn gibt) → `{ ok, mcp }`; `mcp: false` = MCP-Server noch nicht in Claude Desktop eingetragen |
+| Skill mit KI (Formelsammlung, Mindmap, Glossar, Übungsaufgaben) | `POST /api/studyhub/skill-erstellen` `{ kurs, skill }`; Ergebnisse in `kursSkills[<kurs>][<skill>]` von `GET /api/studyhub` (Texte HTML-maskiert) |
+| Claude-Abo | `GET /api/ai/claude-status` → `{ installed, logged_in, method, email }`, `POST /api/ai/claude-login` (Terminal + Browser), `POST /api/markdown/zeigen` (Markdown-Ordner im Finder) |
 | Karte bewerten (Nochmal/Schwer/Gewusst) | `POST /api/cards/review` `{ id, bewertung }` → `{ inTagen, faellig }` (SM-2, `server/cards.py`). Karten in `/api/studyhub` tragen `id`, `neu`, `faellig`, `inTagen`; fällige zuerst. `karten.faellig` zählt fällige, `karten.naechste` = Tage bis zur nächsten |
 | Anki | `GET /api/anki/status` → `{ ready, decks, hinweis? }`, `POST /api/anki/import` `{ kurs, deck }`, `POST /api/anki/export` `{ kurs }` (Deck `StudyHub::<Kurs>`). Braucht laufendes Anki mit AnkiConnect (Code 2055492159) |
 | Karten als Textdatei | `POST /api/cards/import` (multipart `kurs`, `file`; Tabulator, Anki „Notizen als Text“), `GET /api/cards/export?kurs=…` (Download) bzw. `POST /api/cards/export` `{ kurs }` (Datei in `~/Downloads`) |

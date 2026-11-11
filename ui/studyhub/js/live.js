@@ -152,6 +152,7 @@ LIVE.laden = async function () {
     aufbereiten(id, d);
     MODUL_DETAILS[id] = d;
     zustand.skills[id] = studyhub.skills?.[d.kurs] || [];
+    d.kiSkills = studyhub.kursSkills?.[d.kurs] || {}; // Formelsammlung, Mindmap, Glossar, Übungsaufgaben (KI)
   }
 
   const daten = studyhub.daten;
@@ -317,6 +318,24 @@ LIVE.klick = async function (ds) {
   const d = MODUL_DETAILS[ds.modul];
   const thema = d?.themen.find((t) => t.nr === Number(ds.nr));
   switch (ds.aktion) {
+    case "live-skill-erstellen": {
+      if (LIVE.laedt) return;
+      LIVE.laedt = `skill-${ds.modul}-${ds.skill}`;
+      neuZeichnen();
+      zeigeToast("Claude liest alle Unterlagen des Kurses, das dauert ein bis zwei Minuten …");
+      try {
+        await api("/api/studyhub/skill-erstellen", { method: "POST", body: { kurs: d.kurs, skill: ds.skill } });
+        await LIVE.laden();
+        zeigeToast("Fertig");
+      } catch (fehler) {
+        zeigeToast(`KI: ${fehler.message}`);
+      } finally {
+        LIVE.laedt = null;
+        neuZeichnen();
+      }
+      break;
+    }
+
     case "live-neu-laden":
       LIVE.fehler = null;
       $("#sync-text").textContent = "Verbinde mit der App …";
@@ -720,16 +739,57 @@ LIVE.tabZusammenfassung = function (m, d) {
     </div>`;
 };
 
-// Claude Desktop mit neuem Chat öffnen; auf einer Modulseite kennt der Auftrag den Kurs
-LIVE.claudeOeffnen = async function (modulId) {
-  const modul = modulId ? findeModul(modulId) : null;
-  try {
-    const antwort = await api("/api/claude/open", { method: "POST", body: { kurs: modul?.live ? modul.kurs : null } });
-    zeigeToast(antwort.mcp ? "Claude geöffnet · Auftrag steht im neuen Chat, mit ↩ senden"
-      : "Claude geöffnet · erst unter Einstellungen › KI › Claude Desktop einrichten");
-  } catch (fehler) {
-    zeigeToast(fehler.message);
+// ---------- Skills mit KI über den ganzen Kurs (POST /api/studyhub/skill-erstellen) ----------
+// Texte kommen vom Server bereits HTML-maskiert (studyhub.escape_tree).
+
+LIVE.skillKnopf = function (m, d, skillId) {
+  const laeuft = LIVE.laedt === `skill-${m.id}-${skillId}`;
+  const da = d.kiSkills?.[skillId];
+  return `<button class="pille" data-aktion="live-skill-erstellen" data-modul="${m.id}" data-skill="${skillId}" ${LIVE.laedt ? "disabled" : ""}>
+    ${icon(laeuft ? "sync" : "funken", 18)} ${laeuft ? "Wird erstellt …" : da ? "Neu erstellen" : "Mit KI aus allen Unterlagen erstellen"}</button>`;
+};
+
+LIVE.skillInhalt = function (m, d, skillId) {
+  const r = d.kiSkills?.[skillId];
+  if (!r) return null;
+  const o = r.output || {};
+  const quelle = (q) => (q ? `<span class="mini">${q}</span>` : "");
+  const stand = `<p class="klein">Erstellt aus ${anzahl(r.quellen.length, "Dokument", "Dokumenten")} · ${datumKurz(new Date(r.created * 1000).toISOString().slice(0, 10))}</p>`;
+  if (skillId === "formelsammlung") {
+    return stand + (o.gruppen || []).map((g) => `
+      <section class="zf-abschnitt">
+        <h3 class="mini-titel">${g.thema}</h3>
+        <div class="formel-raster">${g.formeln.map((f) => `
+          <div class="formel glas-stark"><span class="mini">${f.name}</span><div class="formel-ausdruck">${f.formel}</div>
+            <p class="klein">${f.erklaerung}</p>${quelle(f.quelle)}</div>`).join("")}</div>
+      </section>`).join("");
   }
+  if (skillId === "glossar") {
+    return stand + `<dl class="glossar glas">${(o.begriffe || []).map((g) => `
+      <div><dt>${g.begriff}</dt><dd>${g.erklaerung} ${quelle(g.quelle)}</dd></div>`).join("")}</dl>`;
+  }
+  if (skillId === "mindmap") {
+    return stand + `
+      <div class="mindmap glas">
+        <div class="mindmap-mitte">${o.zentrum || m.name}</div>
+        <div class="mindmap-aeste">${(o.aeste || []).map((a) => `
+          <div class="mindmap-ast">
+            <span class="mindmap-thema">${a.titel}</span>
+            <div class="mindmap-blaetter">${a.unterpunkte.map((u) => `<span class="chip chip-klein">${u}</span>`).join("")}</div>
+            ${quelle(a.quelle)}
+          </div>`).join("")}
+        </div>
+      </div>`;
+  }
+  if (skillId === "uebungsaufgaben") {
+    return stand + `<ol class="aufgaben-liste">${(o.aufgaben || []).map((a) => `
+      <li class="glas aufgabe-karte">
+        <div class="aufgabe-kopf"><b>${a.titel}</b><span class="badge">${a.schwierigkeit}</span>${quelle(a.quelle)}</div>
+        <p>${a.aufgabe}</p>
+        <details><summary>Lösung anzeigen</summary><div class="zf-md">${a.loesung.replace(/\n/g, "<br>")}</div></details>
+      </li>`).join("")}</ol>`;
+  }
+  return null;
 };
 
 // Frage zu einem Dokument (KI-Aufgabe „qa“); die Antwort erscheint im Lernthema unter der Frage
@@ -877,8 +937,8 @@ document.addEventListener("drop", (e) => {
 });
 
 // ---------- Automatisch neu laden ----------
-// Ergebnisse, die außerhalb von StudyHub entstehen (z. B. Lernthemen aus Claude Desktop über den
-// MCP-Server), erscheinen ohne Neustart: beim
+// Ergebnisse, die außerhalb von StudyHub entstehen (z. B. Markdown-Fassungen und Suchindex aus dem
+// Hintergrund), erscheinen ohne Neustart: beim
 // Zurückwechseln ins Fenster und alle 30 Sekunden. Gezeichnet wird nur, wenn sich etwas geändert hat,
 // und nie während einer Lernrunde, eines Gesprächs, einer KI-Aktion oder in Formularen.
 

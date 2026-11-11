@@ -63,6 +63,9 @@ CLAUDE_MODELS = {
     "claude-haiku-5-5": "Claude Haiku 5.5 (am günstigsten)",
 }
 DEFAULT_CLAUDE_MODEL = "claude-opus-5-5"
+CLAUDE_ABO = "claude-abo"  # Claude Code headless über das Claude-Abo (claude_cli.py), Standard-Anbieter
+PROVIDERS = (CLAUDE_ABO, "claude", "openai", "gemini", "gemma")
+DEFAULT_PROVIDER = CLAUDE_ABO
 OPENAI_URL = "https://api.openai.com/v1/responses"
 OPENAI_KEY_ACCOUNT = "OpenAI-API-Key"
 OPENAI_MODELS = {
@@ -277,7 +280,12 @@ def providers() -> dict:
     model = gemma_model(models)
     local = models is not None and model in models
     api = bool(google_key())
+    import claude_cli
+
+    abo = claude_cli.status()
     return {
+        CLAUDE_ABO: {"ready": abo["logged_in"], "installed": abo["installed"], "email": abo["email"],
+                     "models": CLAUDE_MODELS},
         "claude": {"ready": claude_ready(), "models": CLAUDE_MODELS},
         "openai": {"ready": bool(openai_key()), "models": OPENAI_MODELS},
         "gemini": {"ready": api, "models": GEMINI_MODELS},
@@ -442,8 +450,9 @@ def _results(entry: dict) -> list[dict]:
 
 def cost(result: dict) -> float | None:
     """Geschätzte Kosten eines Ergebnisses in US-Dollar nach dem Listenpreis am Erstellungstag.
-    0 für Gemma (lokal oder kostenloses Kontingent), None ohne bekannten Preis (z. B. Claude Desktop)."""
-    if result.get("provider") == "gemma":
+    0 für Gemma (lokal oder kostenloses Kontingent) und das Claude-Abo (keine Kosten pro Anfrage),
+    None ohne bekannten Preis (z. B. Claude Desktop)."""
+    if result.get("provider") in ("gemma", CLAUDE_ABO):
         return 0.0
     model = str(result.get("model") or "")
     key = next((k for k in sorted(PRICES, key=len, reverse=True) if model.startswith(k)), None)
@@ -847,6 +856,32 @@ def _gemma(pages: list[str], path: Path, task: str, instruction: str, question: 
     return send(prompt), meta
 
 
+# --- Claude-Abo (Claude Code headless) ----------------------------------------
+
+
+def _abo_send(prompt: str, system: str, model: str, schema: dict | None = None) -> dict:
+    import claude_cli
+
+    try:
+        return claude_cli.run(prompt, system, model, schema)
+    except claude_cli.CLIError as error:
+        raise AIError(str(error)) from None
+
+
+def _claude_abo(path: Path, relative: str, task: str, instruction: str, model: str) -> tuple[str | dict, dict]:
+    """Arbeitet mit der Markdown-Fassung des Dokuments statt mit der PDF (spart Tokens); gescannte PDFs
+    überträgt Claude dabei einmal selbst in Markdown."""
+    import markdown_docs
+
+    text, art = markdown_docs.ensure(path, relative, use_claude=True, model=model)
+    prompt = f'<dokument titel="{path.name}">\n{text}\n</dokument>\n\n{instruction}'
+    result = _abo_send(prompt, SYSTEM, model, TASK_SCHEMAS.get(task))
+    meta = {"provider": CLAUDE_ABO, "model": result["model"],
+            "input_mode": "Markdown (gescannt, von Claude übertragen)" if art == "claude" else "Markdown",
+            **{k: result[k] for k in ("tokens_in", "tokens_out", "cache_read", "cache_write")}}
+    return result["output"], meta
+
+
 # --- Kurze Anfragen ----------------------------------------------------------
 
 
@@ -855,6 +890,8 @@ def complete(provider: str, system: str, prompt: str, schema: dict | None = None
     if provider == "gemma":
         # Ausgabe begrenzen: kleine Modelle laufen bei JSON-Vorgabe sonst endlos weiter
         text = _gemma_send(system, prompt, schema, max_tokens=2000)
+    elif provider == CLAUDE_ABO:
+        return _abo_send(prompt, system, model or DEFAULT_CLAUDE_MODEL, schema)["output"]
     elif provider == "claude":
         params = {"model": model or DEFAULT_CLAUDE_MODEL, "max_tokens": 4000, "system": system,
                   "messages": [{"role": "user", "content": prompt}], "output_config": {"effort": "low"}}
@@ -902,10 +939,12 @@ def run(path: Path, relative: str, task: str, provider: str, model: str | None =
             if answer["question"].strip().lower() == question.strip().lower() and answer["provider"] == provider:
                 return {**answer, "cached": True}
 
-    pages = extract_pages(path)
     instruction = TASKS[task].format(question=question.strip())
     started = time.monotonic()
-    if provider == "claude":
+    pages = [] if provider == CLAUDE_ABO else extract_pages(path)
+    if provider == CLAUDE_ABO:
+        output, meta = _claude_abo(path, relative, task, instruction, model or DEFAULT_CLAUDE_MODEL)
+    elif provider == "claude":
         output, meta = _claude(pages, path, task, instruction, model or DEFAULT_CLAUDE_MODEL)
     elif provider == "openai":
         output, meta = _openai(pages, path, task, instruction, model or DEFAULT_OPENAI_MODEL)

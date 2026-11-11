@@ -32,12 +32,15 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 import ai  # noqa: E402
 import cards  # noqa: E402
+import claude_cli  # noqa: E402
 import cli  # noqa: E402
 import core  # noqa: E402
+import course_skills  # noqa: E402
 import courses  # noqa: E402
 import goodnotes  # noqa: E402
 import integrations  # noqa: E402
 import libraries  # noqa: E402
+import markdown_docs  # noqa: E402
 import schedule  # noqa: E402
 import search_index  # noqa: E402
 import studyhub  # noqa: E402
@@ -69,6 +72,8 @@ def search_index_worker() -> None:
                 files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()]
                 if added := search_index.index_all(files, stop=_stopping.is_set):
                     core.log(f"Suche: {added} Dateien durchsuchbar gemacht")
+                if made := markdown_docs.ensure_all(files, stop=_stopping.is_set):  # Textfassung für die KI
+                    core.log(f"Markdown: {made} Dokumente als Markdown abgelegt")
         except Exception as error:  # der Hintergrund-Thread darf die App nie mitreißen
             core.log(f"Suche: Aufnahme fehlgeschlagen ({error})")
         _index_wake.wait(INDEX_INTERVAL)
@@ -184,8 +189,16 @@ def file_info(path: Path, cached: dict[str, dict]) -> dict:
 
 def provider_model(config: dict, provider: str) -> str | None:
     """In den Einstellungen gewähltes Modell eines Anbieters (Gemma wählt sein Modell selbst)."""
-    return {"claude": config.get("claude_model"), "openai": config.get("openai_model"),
-            "gemini": config.get("gemini_model")}.get(provider)
+    return {ai.CLAUDE_ABO: config.get("claude_model"), "claude": config.get("claude_model"),
+            "openai": config.get("openai_model"), "gemini": config.get("gemini_model")}.get(provider)
+
+
+def ai_provider(config: dict) -> str:
+    """Gewählter KI-Anbieter. Einmalige Umstellung: das Claude-Abo (headless) wird Standard."""
+    if not config.get("abo_standard"):
+        config["ai_provider"], config["abo_standard"] = ai.DEFAULT_PROVIDER, True
+        core.save_config(config)
+    return config.get("ai_provider", ai.DEFAULT_PROVIDER)
 
 
 def cached_by_path() -> dict[str, dict]:
@@ -328,6 +341,8 @@ def rename_app_data(old: str, new: str) -> None:
     studyhub.rename_folder(old, new)
     cards.rename_folder(old, new, cached_by_path())
     search_index.rename_folder(old, new)
+    markdown_docs.rename_folder(old, new)
+    course_skills.rename_folder(old, new)
     core.log(f"Kurs umbenannt: {old} → {new} (Lernstand und KI-Ergebnisse übernommen)")
 
 
@@ -382,11 +397,35 @@ def open_file(body: dict) -> dict:
 @app.get("/api/ai/providers", dependencies=[api])
 def ai_providers() -> dict:
     config = core.load_config()
-    return {**ai.providers(), "default_provider": config.get("ai_provider", "claude"),
+    return {**ai.providers(), "default_provider": ai_provider(config),
             "claude_model": config.get("claude_model", ai.DEFAULT_CLAUDE_MODEL),
             "openai_model": config.get("openai_model", ai.DEFAULT_OPENAI_MODEL),
             "gemini_model": config.get("gemini_model", ai.DEFAULT_GEMINI_MODEL),
             "gemma_api_model": ai.gemma_api_model()}
+
+
+@app.get("/api/ai/claude-status", dependencies=[api])
+def ai_claude_status() -> dict:
+    """Ist Claude Code installiert und mit dem Claude-Abo angemeldet? (frisch geprüft)"""
+    return claude_cli.status(refresh=True)
+
+
+@app.post("/api/ai/claude-login", dependencies=[api])
+def ai_claude_login() -> dict:
+    """Öffnet die Anmeldung bei Claude (Terminal mit `claude auth login`, danach im Browser bestätigen)."""
+    try:
+        claude_cli.open_login()
+    except claude_cli.CLIError as error:
+        raise HTTPException(400, str(error)) from None
+    return {"ok": True}
+
+
+@app.post("/api/markdown/zeigen", dependencies=[api])
+def markdown_reveal() -> dict:
+    """Ordner mit den Markdown-Fassungen im Finder öffnen (für Claude oder andere KI-Werkzeuge)."""
+    markdown_docs.MD_DIR.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["open", str(markdown_docs.MD_DIR)], check=False)
+    return {"ok": True, "pfad": str(markdown_docs.MD_DIR)}
 
 
 @app.get("/api/ai/usage", dependencies=[api])
@@ -421,7 +460,7 @@ class AIRequest(BaseModel):
 @app.post("/api/ai/run", dependencies=[api])
 def ai_run(body: AIRequest) -> dict:
     config = core.load_config()
-    provider = body.provider or config.get("ai_provider", "claude")
+    provider = body.provider or ai_provider(config)
     model = provider_model(config, provider)
     try:
         return ai.run(mirror_path(body.path), body.path, body.task, provider,
@@ -464,35 +503,6 @@ def share(body: ShareRequest) -> dict:
         raise HTTPException(400, str(error)) from None
 
 
-class ClaudeCoach(BaseModel):
-    kurs: str | None = None
-
-
-@app.post("/api/claude/open", dependencies=[api])
-def claude_open(body: ClaudeCoach) -> dict:
-    """Neuer Chat in Claude Desktop, der über den MCP-Server als Lerncoach arbeitet."""
-    # Nur echte Kursnamen in den Auftrag übernehmen
-    kurs = body.kurs if body.kurs in {f["course"] for f in list_files()["files"]} else None
-    try:
-        integrations.open_claude(kurs)
-    except integrations.ShareError as error:
-        raise HTTPException(400, str(error)) from None
-    core.log(f"Claude Desktop als Lerncoach geöffnet{f' ({kurs})' if kurs else ''}")
-    return {"ok": True, "mcp": integrations.claude_mcp_configured()}
-
-
-@app.post("/api/claude/mcp", dependencies=[api])
-def claude_mcp() -> dict:
-    """Trägt den MCP-Server in Claude Desktop ein (Einstellungen › KI), statt die JSON-Datei von Hand zu bearbeiten."""
-    try:
-        changed = integrations.configure_claude_mcp(demo=DEMO)
-    except integrations.ShareError as error:
-        raise HTTPException(400, str(error)) from None
-    if changed:
-        core.log(f"Claude Desktop: MCP-Server „{integrations.MCP_NAME}“ eingetragen")
-    return {"ok": True, "changed": changed}
-
-
 # --- Einstellungen ------------------------------------------------------------
 
 
@@ -509,7 +519,7 @@ def settings() -> dict:
         "goodnotes": config["goodnotes"],
         "goodnotes_available": goodnotes.find_app() is not None,
         "notion": bool(config["notion"]),
-        "ai_provider": config.get("ai_provider", "claude"),
+        "ai_provider": ai_provider(config),
         "claude_model": config.get("claude_model", ai.DEFAULT_CLAUDE_MODEL),
         "has_api_key": bool(ai.api_key()),
         "has_profile": ai.has_profile(),
@@ -519,7 +529,6 @@ def settings() -> dict:
         "gemma_api_model": ai.gemma_api_model(),
         "has_google_key": bool(ai.google_key()),
         "remarkable": integrations.remarkable_status(),
-        "claude_desktop": integrations.claude_desktop_status(demo=DEMO),
         "demo": DEMO,
         "data_dir": str(APP_DIR),
         "version": VERSION,
@@ -607,8 +616,8 @@ def update_settings(body: SettingsUpdate) -> dict:
         config["interval_minutes"] = body.interval
     if body.goodnotes is not None:
         config["goodnotes"] = body.goodnotes and goodnotes.find_app() is not None
-    if body.ai_provider in ("claude", "openai", "gemini", "gemma"):
-        config["ai_provider"] = body.ai_provider
+    if body.ai_provider in ai.PROVIDERS:
+        config["ai_provider"], config["abo_standard"] = body.ai_provider, True
     if body.claude_model in ai.CLAUDE_MODELS:
         config["claude_model"] = body.claude_model
     if body.api_key is not None:
@@ -710,6 +719,7 @@ def studyhub_data() -> dict:
     data = studyhub.overview(config, files, cached, studyhub.load_state(), karten=cards.load(),
                              exams=studyhub.load_exams(), hidden=[file_info(p, cached) for p in mirror_files(True)])
     data["skills"] = studyhub.load_skills()
+    data["kursSkills"] = studyhub.escape_tree(course_skills.load())  # KI-Ausgaben nur maskiert ins HTML
     data["sync"] = {
         "configured": bool(config["uni_id"] and config["target_dir"]), "demo": DEMO, "running": sync_running(),
         "letzter": cli.last_sync_line(), "fehler": status["crawl_failures"],
@@ -744,6 +754,25 @@ def studyhub_skills(body: SkillsUpdate) -> dict:
         return {"skills": studyhub.set_skills(_course(body.kurs), body.skills)}
     except ValueError as error:
         raise HTTPException(400, str(error)) from None
+
+
+class SkillCreate(BaseModel):
+    kurs: str
+    skill: str
+
+
+@app.post("/api/studyhub/skill-erstellen", dependencies=[api])
+def studyhub_skill_create(body: SkillCreate) -> dict:
+    """Formelsammlung, Mindmap, Glossar oder Übungsaufgaben eines Kurses mit KI aus allen Kursdokumenten."""
+    course = _course(body.kurs)
+    config = core.load_config()
+    provider = ai_provider(config)
+    files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()]
+    try:
+        course_skills.create(course, body.skill, files, provider, provider_model(config, provider))
+    except ai.AIError as error:
+        raise HTTPException(400, str(error)) from None
+    return {"ok": True}
 
 
 class Ausblenden(BaseModel):

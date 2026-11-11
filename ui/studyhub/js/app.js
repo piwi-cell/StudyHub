@@ -1214,8 +1214,12 @@ function tabSkill(m, d, skillId) {
   let inhalt = "";
 
   const leer = (text) => `<div class="platzhalter glas"><div class="platzhalter-icon">${icon(s.icon, 28)}</div><h2>${s.name}</h2><p>${text}</p></div>`;
+  // Echte Kurse: Ergebnis der KI über alle Unterlagen, sonst wie bisher aus den Zusammenfassungen abgeleitet
+  const ki = d.live && skillId !== "probeklausur" ? LIVE.skillInhalt(m, d, skillId) : null;
 
-  if (skillId === "formelsammlung" && !d.themen.some((t) => t.formeln.length)) {
+  if (ki) {
+    inhalt = ki;
+  } else if (skillId === "formelsammlung" && !d.themen.some((t) => t.formeln.length)) {
     inhalt = leer("In den Zusammenfassungen dieses Moduls wurden noch keine Formeln gefunden.");
   } else if (skillId === "glossar" && !d.glossar.length) {
     inhalt = leer("Das Glossar füllt sich aus den „Wichtigen Begriffen“ deiner Zusammenfassungen. Erstelle zuerst eine Zusammenfassung.");
@@ -1265,9 +1269,12 @@ function tabSkill(m, d, skillId) {
       <div class="skill-kopf">
         <div>
           <h2>${icon(s.icon, 22)} ${s.name}</h2>
-          <p class="klein">${s.nutzt}</p>
+          <p class="klein">${d.live && skillId !== "probeklausur" ? "Claude liest dafür alle Unterlagen des Kurses" : s.nutzt}</p>
         </div>
-        <button class="knopf-hell" data-aktion="skill-entfernen" data-skill="${s.id}" data-modul="${m.id}">Tab entfernen</button>
+        <div class="skill-knoepfe">
+          ${d.live && skillId !== "probeklausur" ? LIVE.skillKnopf(m, d, skillId) : ""}
+          <button class="knopf-hell" data-aktion="skill-entfernen" data-skill="${s.id}" data-modul="${m.id}">Tab entfernen</button>
+        </div>
       </div>
       ${inhalt}
     </div>`;
@@ -1547,15 +1554,6 @@ $("#sync-knopf").addEventListener("click", () => {
     $("#sync-text").textContent = "ILIAS verbunden · Sync gerade eben";
     zeigeToast("Alles aktuell · 3 neue Dateien in Finanzmathematik");
   }, 1800);
-});
-
-// "Claude": neuer Chat in Claude Desktop, der über den MCP-Server als Lerncoach arbeitet
-$("#claude-knopf").addEventListener("click", () => {
-  if (!LIVE.aktiv) {
-    zeigeToast("Claude öffnet sich nur aus der laufenden App");
-    return;
-  }
-  LIVE.claudeOeffnen(aktuelleRoute().modul);
 });
 
 // Register auf dem Handy ein-/ausklappen

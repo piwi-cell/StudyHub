@@ -52,8 +52,6 @@ PFERD (Programm zum Abruf der ILIAS-Dateien, github.com/Garmelon/PFERD) wird unv
 | jsonschema-specifications | 2025.9.1 | MIT |
 | keyring | 25.7.0 | MIT |
 | markdown-it-py | 4.2.0 | MIT |
-| mcp | 2.3.0 | MIT |
-| mcp-types | 2.3.0 | MIT |
 | mdurl | 0.1.2 | MIT |
 | more-itertools | 11.2.1 | MIT |
 | multidict | 7.2.0 | Apache-2.0 |
