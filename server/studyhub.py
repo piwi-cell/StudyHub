@@ -287,15 +287,20 @@ def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor
     exams = exams or {}
 
     # Module = Kursordner (Übungsgruppen liegen als Unterordner darin), Semester aus dem ILIAS-Titel
-    semester_by_name, modules = {}, {}
+    semester_by_name, modules, switched_off = {}, {}, set()
     for title, settings in config.get("courses", {}).items():
         name = settings["name"].split("/")[0]
         if settings.get("group") or "/" in settings["name"]:
             continue
         if settings.get("sync"):
             modules.setdefault(name, [])
+        else:
+            switched_off.add(core.nfc(name))
         if sem := semester_of(title):
             semester_by_name[name] = sem
+    # Abgewählte Kurse bleiben ausgeblendet, auch wenn ihr Ordner noch alte Dateien im Spiegel hat
+    switched_off -= {core.nfc(name) for name in modules}
+    files = [f for f in files if core.nfc(f["course"]) not in switched_off]
     for f in files:
         modules.setdefault(f["course"], []).append(f)
 

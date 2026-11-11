@@ -113,6 +113,22 @@ def test_documents_marked_official_or_own():
     assert eigen == {"Vorlesung": False, "Eigene Dateien": True, "Eigene Zusammenfassungen": True}
 
 
+def test_switched_off_course_stays_hidden_with_old_files():
+    """Abgewählter Kurs mit alten Dateien im Spiegel (z. B. Finanzmathematik) erscheint nicht mehr."""
+    config = {"uni_id": "", "courses": {
+        "CC 302 Finanzmathematik VL [V] (HWS 2026)": {"name": "Finanzmathematik VL", "sync": False, "group": False},
+        "MAT 100 Mathe [V] (HWS 2026)": {"name": "Mathe", "sync": True, "group": False},
+    }}
+    files = [_file("Finanzmathematik VL/Vorlesung/Kapitel 1.pdf"), _file("Mathe/Skript.pdf"),
+             _file("Eigener Ordner/Notizen.pdf")]
+    hidden = [_file("Finanzmathematik VL/Alt.pdf")]
+    data = studyhub.overview(config, files, {}, {}, {}, now=NOW, hidden=hidden)
+    names = [m["name"] for s in data["daten"]["semester"] for m in s["module"]]
+    assert "Finanzmathematik VL" not in names
+    assert "Mathe" in names and "Eigener Ordner" in names  # Ordner ohne Kurs-Eintrag bleiben sichtbar
+    assert "finanzmathematik-vl" not in data["details"]
+
+
 def test_lernplan_state_validation():
     assert studyhub.set_state("a.pdf", "nochmal", "Folie 3")["status"] == "nochmal"
     assert studyhub.load_state()["a.pdf"] == {"status": "nochmal", "notiz": "Folie 3"}
