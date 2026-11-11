@@ -144,7 +144,7 @@ EINSTELLUNGEN.seiteKurse = function () {
 // ---------- Seite „Einstellungen“ ----------
 
 EINSTELLUNGEN.seiteEinstellungen = function () {
-  return rahmen("Einstellungen", "ILIAS-Zugang, Abgleich, KI und Sprachtutor.", () => {
+  return rahmen("Einstellungen", "ILIAS-Zugang, Abgleich, KI und Weitergabe.", () => {
     const s = EINSTELLUNGEN.settings;
     const p = EINSTELLUNGEN.providers;
     const busy = (art) => EINSTELLUNGEN.busy === art;
@@ -200,22 +200,6 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
       ${kostenZeile()}`,
     "Kosten entstehen pro Nutzung beim Anbieter. Gemma läuft kostenlos auf dem Mac oder im kostenlosen Kontingent von Google AI Studio.");
 
-    const tutorKarte = karte("Sprachtutor", "stimme", `
-      ${zeile("Wer bewertet deine Antworten", "", auswahl("tutor_brain", s.tutor_brain, KI_NAMEN))}
-      ${zeile("Stimme (ElevenLabs)", s.has_elevenlabs_key ? "Vorlesen und Spracherkennung aktiv" : "ohne Key spricht die Browser-Stimme", bereit(s.has_elevenlabs_key))}
-      ${geheim("elevenlabs_key", s.has_elevenlabs_key, "ElevenLabs-API-Key")}
-      <form class="einst-form" data-form="einst-text" data-name="voice_id">
-        <input class="tutor-feld" name="wert" value="${esc(s.voice_id || "")}" placeholder="Stimmen-ID" aria-label="Stimmen-ID">
-        <button class="knopf-hell">Speichern</button>
-      </form>
-      ${zeile("Freies Gespräch (ElevenLabs Agent)", s.agent_id ? "Agent-ID gespeichert" : "Agent im ElevenLabs-Dashboard anlegen, ID hier eintragen (docs/tutor/SETUP.md)", bereit(Boolean(s.agent_id && s.has_elevenlabs_key)))}
-      <form class="einst-form" data-form="einst-text" data-name="agent_id">
-        <input class="tutor-feld" name="wert" value="${esc(s.agent_id || "")}" placeholder="Agent-ID, z. B. agent_…" aria-label="ElevenLabs Agent-ID">
-        <button class="knopf-hell">Speichern</button>
-      </form>
-      ${zeile("Fragen automatisch vorbereiten", "im Hintergrund mit Gemma lokal (kostenlos), nach jedem Abgleich", schalter("tutor_auto", s.tutor_auto !== false, "Fragen automatisch vorbereiten"))}`,
-    "Das Mikrofon funktioniert nur im Browser, nicht im App-Fenster.");
-
     const weitergabe = karte("Weitergabe", "pfeil", `
       ${zeile("Telegram", s.telegram ? "Zusammenfassungen und Karten aufs Handy" : "Bot bei @BotFather anlegen, Token hier einfügen",
         s.telegram ? `<button class="knopf-hell" data-aktion="live-e-telegram-test">Test</button> <button class="knopf-hell" data-aktion="live-e-telegram-aus">Trennen</button>` : bereit(false))}
@@ -232,7 +216,7 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
       ${zeile("Programmordner", esc(s.code_dir), "")}
       ${zeile("Datenordner", esc(s.data_dir), "")}`);
 
-    return `<div class="einst-raster">${zugang}${abgleich}${ki}${tutorKarte}${weitergabe}${info}</div>`;
+    return `<div class="einst-raster">${zugang}${abgleich}${ki}${weitergabe}${info}</div>`;
   });
 };
 
@@ -252,7 +236,7 @@ function kostenZeile() {
   const n = EINSTELLUNGEN.nutzung;
   if (!n) return "";
   const ohne = n.ohne_preis ? `, ${n.ohne_preis} ohne Preis (z. B. über Claude Desktop)` : "";
-  return zeile("Kosten diesen Monat", `${n.ergebnisse} Ergebnisse${ohne}. Schätzung nach Listenpreisen; Sprachtutor nicht mitgezählt`,
+  return zeile("Kosten diesen Monat", `${n.ergebnisse} Ergebnisse${ohne}. Schätzung nach Listenpreisen`,
     `<span class="einst-titel">ca. ${dollar(n.kosten_usd)}</span>`);
 }
 
@@ -262,7 +246,6 @@ async function speichern(body, meldung = "Gespeichert") {
   try {
     EINSTELLUNGEN.settings = await api("/api/settings", { method: "PATCH", body });
     EINSTELLUNGEN.providers = await api("/api/ai/providers");
-    if ("elevenlabs_key" in body) LIVE.voiceReady = EINSTELLUNGEN.settings.has_elevenlabs_key;
     zeigeToast(meldung);
   } catch (fehler) {
     zeigeToast(fehler.message);

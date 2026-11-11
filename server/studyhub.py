@@ -1,6 +1,6 @@
 """Daten für die StudyHub-Oberfläche (ui/studyhub) im Format der Mock-Daten (ui/studyhub/js/daten.js).
 
-overview() baut aus Kursen, Dateien, KI-Ergebnissen, Tutor-Statistik und Lernplan-Status
+overview() baut aus Kursen, Dateien, KI-Ergebnissen und Lernplan-Status
 genau die Struktur von DATEN und MODUL_DETAILS in ui/studyhub/js/daten.js. Die Oberfläche
 kann die Mock-Daten damit 1:1 ersetzen.
 
@@ -78,7 +78,7 @@ def _questions(entry: dict) -> list[dict]:
 
 def search_hits(query: str, files: list[dict], text_hits: list[dict], limit: int = 25) -> list[dict]:
     """Treffer für die Suche oben in StudyHub: erst Dateinamen (alle Wörter im Pfad), dann Textstellen.
-    files: sichtbare Dateien wie /api/files; text_hits: tutor.search_material(). Alles HTML-maskiert."""
+    files: sichtbare Dateien wie /api/files; text_hits: search_index.search_material(). Alles HTML-maskiert."""
     words = [w.casefold() for w in re.findall(r"\w{2,}", query)]
     if not words:
         return []
@@ -270,10 +270,9 @@ def _group_order(folder: str) -> tuple[int, str]:
     return (1 if "tutori" in folder.lower() else 2 if UEBUNG.search(folder) else 3), folder
 
 
-def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor_stats: dict[str, dict],
-             state: dict, now: float | None = None, karten: dict | None = None, exams: dict | None = None,
-             hidden: list[dict] | None = None) -> dict:
-    """files: wie /api/files; ai_entries: Pfad → KI-Cache-Eintrag; tutor_stats: Kursordner → tutor.stats();
+def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], state: dict, now: float | None = None,
+             karten: dict | None = None, exams: dict | None = None, hidden: list[dict] | None = None) -> dict:
+    """files: wie /api/files; ai_entries: Pfad → KI-Cache-Eintrag;
     karten: Lernstand und eigene Karten (cards.load()); exams: Kursordner → Klausurdatum;
     hidden: ausgeblendete Dateien (wie files), nur zum Wieder-Einblenden im Tab „Dokumente“."""
     now = now or time.time()
@@ -301,7 +300,7 @@ def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor
             module_id, n = f"{base}-{n}", n + 1
         ids[name] = module_id
         details[module_id], module_rows[name] = _module(name, module_id, modules[name], ai_entries,
-                                                        tutor_stats.get(name, {}), state, now, karten,
+                                                        state, now, karten,
                                                         _exam(exams.get(core.nfc(name)), now))
         details[module_id]["ausgeblendet"] = []
     for f in sorted(hidden or [], key=lambda f: f["name"].casefold()):
@@ -338,7 +337,7 @@ def _card(cid: str, source: str, front: str, back: str, karten: dict, now: float
             **cardstore.state_of(karten["reviews"].get(cid), now), **extra}
 
 
-def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stats: dict, state: dict,
+def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, state: dict,
             now: float, karten: dict, klausur: dict | None) -> tuple[dict, dict]:
     files = sorted(files, key=lambda f: (_group_order(f["folder"]), f["name"].casefold()))
     status = {f["path"]: state.get(f["path"], {}) for f in files}
@@ -440,7 +439,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
             else "Noch nicht gestartet" if gesamt else "Noch keine Dateien")
     row = {"id": module_id, "name": esc(name), "fortschritt": fortschritt, "info": info,
            "zeile": f"{basis['erledigt']} von {gesamt} Einträgen", "neu": neu, "kurs": name,
-           "karten": faellig, "nochmal": stats.get("wrong", 0) + basis["nochmal"], "klausur": klausur}
+           "karten": faellig, "nochmal": basis["nochmal"], "klausur": klausur}
     detail = {
         "zusammenfassungFertig": bool(themen),
         "lernplan": {"basis": basis, "kapitel": kapitel, "bereiche": bereiche},
@@ -452,8 +451,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
                                      if first and first["thema"] else first["quelle"] if first else ""),
                    "runde": {"gewusst": 0, "nochmal": 0}, "liste": stapel,
                    "naechste": min((k["inTagen"] for k in stapel if not k["faellig"]), default=None)},
-        "tutor": {"kurs": name, "fragen": stats.get("questions", 0), "beantwortet": stats.get("answered", 0),
-                  "richtig": stats.get("correct", 0), "thema": themen[0]["nr"] if themen else None, "verlauf": []},
+        "kurs": name,
         "glossar": sorted({g["begriff"]: g for g in glossar}.values(), key=lambda g: g["begriff"].casefold()),
         "probeklausur": [],
     }

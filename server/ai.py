@@ -458,7 +458,7 @@ def cost(result: dict) -> float | None:
 
 def usage(month: str | None = None) -> dict:
     """Gespeicherte KI-Ergebnisse eines Monats (JJJJ-MM, Standard: aktueller) mit geschätzten Kosten.
-    Ersetzte Ergebnisse und Gespräche im Sprachtutor sind nicht enthalten."""
+    Ersetzte Ergebnisse sind nicht enthalten."""
     month = month or time.strftime("%Y-%m")
     total, counted, unpriced, by_provider = 0.0, 0, 0, {}
     for entry in all_entries():
@@ -847,7 +847,7 @@ def _gemma(pages: list[str], path: Path, task: str, instruction: str, question: 
     return send(prompt), meta
 
 
-# --- Kurze Anfragen (Tutor) ---------------------------------------------------
+# --- Kurze Anfragen ----------------------------------------------------------
 
 
 def complete(provider: str, system: str, prompt: str, schema: dict | None = None, model: str | None = None):

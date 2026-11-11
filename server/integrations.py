@@ -246,7 +246,7 @@ def coach_prompt(course: str | None = None) -> str:
         "Woher meine Unterlagen kommen: Die Mac-App StudyHub lädt meine Kursdateien aus ILIAS und "
         f"sortiert sie. Über den lokalen MCP-Server „{MCP_NAME}“ auf diesem Mac kannst du sie lesen und "
         "Ergebnisse direkt in die App schreiben (list_courses, list_files, read_file, read_ai_results, "
-        "studyhub_overview, save_thema, save_flashcards, save_tutor_questions).",
+        "studyhub_overview, save_thema, save_flashcards).",
         "",
         "So arbeitest du:",
         f"- Verschaffe dir zuerst mit {overview} einen Überblick, wo ich stehe (Lernplan, „nochmal üben“, "
@@ -256,7 +256,7 @@ def coach_prompt(course: str | None = None) -> str:
         "- Coache statt vorzutragen: kurze Beiträge, eine Frage auf einmal, bei Fehlern erst ein Hinweis, die "
         "Lösung erst nach dem zweiten Fehlversuch. Deutsch, Fachbegriffe aus englischen Unterlagen englisch.",
         "- Was wir erarbeiten, darfst du nach kurzer Rückfrage speichern: Lernthemen mit save_thema, "
-        "Lernkarten mit save_flashcards, Prüfungsfragen für den Sprachtutor mit save_tutor_questions. "
+        "Lernkarten mit save_flashcards. "
         "Es erscheint dann sofort in StudyHub.",
         f"- Findest du den MCP-Server „{MCP_NAME}“ nicht, sag es mir sofort, statt zu raten.",
         "",

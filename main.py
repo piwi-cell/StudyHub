@@ -39,7 +39,7 @@ def load_core():
 
 def instance_lock(app_dir: Path):
     """Pro Datenordner läuft die App nur einmal: Zwei Instanzen würden sich beim Telegram-Bot gegenseitig
-    abweisen (HTTP 409) und Bibliotheken und Tutor doppelt bearbeiten. None, wenn sie schon läuft;
+    abweisen (HTTP 409) und Bibliotheken und Suche doppelt bearbeiten. None, wenn sie schon läuft;
     sonst die gesperrte Datei (offen halten, solange die App läuft; macOS gibt sie beim Beenden frei)."""
     app_dir.mkdir(parents=True, exist_ok=True)
     lock = open(app_dir / ".app.lock", "a")  # nicht "w": würde Port und PID der laufenden App löschen

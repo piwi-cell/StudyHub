@@ -16,7 +16,6 @@ import ai
 import core
 import integrations
 import mcp_server
-import tutor
 from app import app
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -45,10 +44,9 @@ def _call(name: str, arguments: dict) -> dict:
 def test_tools_are_listed_without_delete_or_send():
     tools = {t.name: t for t in asyncio.run(mcp_server.mcp.list_tools())}
     assert set(tools) == {"list_courses", "list_files", "read_file", "view_pages", "read_ai_results",
-                          "studyhub_overview", "save_thema", "save_summary", "save_flashcards",
-                          "save_tutor_questions"}
+                          "studyhub_overview", "save_thema", "save_summary", "save_flashcards"}
     writers = {name for name, t in tools.items() if not t.annotations.read_only_hint}
-    assert writers == {"save_thema", "save_summary", "save_flashcards", "save_tutor_questions"}
+    assert writers == {"save_thema", "save_summary", "save_flashcards"}
     assert all(not t.annotations.destructive_hint for t in tools.values())
     assert tools["save_thema"].input_schema["properties"]["formeln"]["maxItems"] == 5
 
@@ -136,10 +134,9 @@ def test_save_thema_keeps_existing_summary():
 def test_descriptions_name_nested_fields_and_limits():
     """Claude sieht verschachtelte Felder nur über $defs: Beschreibung nennt sie samt Grenzen und Beispiel."""
     tools = {t.name: t for t in asyncio.run(mcp_server.mcp.list_tools())}
-    thema, karten, fragen = (tools[n].description for n in ("save_thema", "save_flashcards", "save_tutor_questions"))
+    thema, karten = (tools[n].description for n in ("save_thema", "save_flashcards"))
     assert '{"name", "text"}' in thema and "0–5" in thema and "≤ 3000" in thema and "save_summary" in thema
     assert '{"front", "back"}' in karten and '"front": "Was ist ein Mindestpreis?"' in karten
-    assert '{"question", "answer", "page"}' in fragen
     assert "## Worum es geht" in tools["save_summary"].description
     defs = tools["save_thema"].input_schema["$defs"]["Formel"]["properties"]
     assert defs["name"]["description"] and defs["text"]["description"]
@@ -191,32 +188,6 @@ def test_save_flashcards_appear_in_studyhub():
     data = TestClient(app).get("/api/studyhub", headers=AUTH).json()
     assert [k["frage"] for k in data["details"]["statistik-i"]["karten"]["liste"]] == ["Was ist H0?", "α?"]
     assert mcp_server.list_courses()["kurse"][0]["lernkarten"] == 1
-
-
-def test_save_tutor_questions_feed_the_tutor():
-    _mirror()
-    _mirror("Mathe/Handout.zip", "kein Text")
-    questions = [{"question": "Was ist H0?", "answer": "Die Nullhypothese.", "page": 1},
-                 {"question": "Was ist α?", "answer": "Die Wahrscheinlichkeit für den Fehler 1. Art.", "page": 9}]
-    for bad in ([], [{"question": "x", "answer": "y"}], [{"question": "x", "answer": "y", "page": 0}],
-                [{"question": "x", "answer": "y", "page": 1, "extra": 1}]):
-        with pytest.raises(ToolError):
-            _call("save_tutor_questions", {"path": PATH, "questions": bad})
-    with pytest.raises(ToolError, match="nur"):
-        _call("save_tutor_questions", {"path": "Mathe/Handout.zip", "questions": questions})
-
-    saved = _call("save_tutor_questions", {"path": PATH, "questions": questions})
-    assert saved["neu"] == 2 and saved["fragen_gesamt"] == 2
-    assert tutor.stats("Statistik I") | {"courses": None} == {
-        "files": 1, "questions": 2, "answered": 0, "correct": 0, "partial": 0, "wrong": 0, "courses": None}
-    question = tutor.next_question("Statistik I", with_solution=True)
-    assert question["question"] in {"Was ist H0?", "Was ist α?"} and question["source"].endswith("S. 1")
-    assert mcp_server.list_files(course="Statistik I")["dateien"][0]["tutor_fragen"] == 2
-
-    # Nie etwas löschen: zweiter Aufruf nur mit add, dann kommen die Fragen dazu
-    with pytest.raises(ToolError, match="add=true"):
-        _call("save_tutor_questions", {"path": PATH, "questions": questions[:1]})
-    assert _call("save_tutor_questions", {"path": PATH, "questions": questions[:1], "add": True})["fragen_gesamt"] == 3
 
 
 def _pdf(path: str, pages: int) -> Path:

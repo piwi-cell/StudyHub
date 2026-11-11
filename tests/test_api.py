@@ -179,12 +179,12 @@ def test_claude_mcp_setup_never_overwrites_unreadable_config(client):
         assert config.read_text(encoding="utf-8") == broken
 
 
-def test_renaming_a_course_keeps_ai_results_learning_state_cards_and_tutor(client):
+def test_renaming_a_course_keeps_ai_results_learning_state_cards_and_search(client):
     """Regression: Nach dem Umbenennen eines Kurses (StudyHub › Kurse) fehlten KI-Ergebnisse, Lernplan-Status,
-    Kartenfortschritt, Klausurtermin und Tutor-Fragen, weil sie am alten Pfad bzw. Kursnamen hingen."""
+    Kartenfortschritt und Klausurtermin, weil sie am alten Pfad bzw. Kursnamen hingen."""
     import cards
+    import search_index
     import studyhub
-    import tutor
 
     config = core.load_config()
     config["courses"] = {"Statistik [V] (HWS 2026)": {"name": "Statistik", "sync": True}}
@@ -202,7 +202,7 @@ def test_renaming_a_course_keeps_ai_results_learning_state_cards_and_tutor(clien
     studyhub.set_hidden(old, False)
     studyhub.set_exam("Statistik", "2099-02-01")
     studyhub.set_skills("Statistik", ["glossar"])
-    tutor.add_fixed_questions(file, old, [{"question": "Was ist H0?", "answer": "Nullhypothese", "page": 1}])
+    assert search_index.index_all([(file, old)]) == 1
 
     answer = client.patch("/api/courses", json={"title": "Statistik [V] (HWS 2026)", "name": "Statistik I"},
                           headers=AUTH)
@@ -216,7 +216,7 @@ def test_renaming_a_course_keeps_ai_results_learning_state_cards_and_tutor(clien
     data = cards.load()
     assert data["reviews"][cards.card_id(new, "Was ist H0?")]["reps"] == 1
     assert [c["kurs"] for c in data["imported"].values()] == ["Statistik I"]
-    assert tutor.stats("Statistik I")["questions"] == 1 and tutor.stats("Statistik")["questions"] == 0
+    assert [h["path"] for h in search_index.search_material("Nullhypothese")] == [new]
     detail = client.get("/api/studyhub", headers=AUTH).json()
     assert detail["skills"] == {"Statistik I": ["glossar"]}
 
@@ -264,8 +264,8 @@ def test_start_page_is_studyhub(client):
 
 
 def test_search_finds_file_names_and_text_but_not_hidden_files(client):
+    import search_index
     import studyhub
-    import tutor
 
     text = "Beim Hypothesentest prüft man die Nullhypothese <H0> gegen die Alternative. " * 5
     (core.MIRROR_DIR / "Statistik/Vorlesung/07 Tests.txt").write_text(text, encoding="utf-8")
@@ -274,7 +274,7 @@ def test_search_finds_file_names_and_text_but_not_hidden_files(client):
     other.write_text("Aufgabe 1: Konfidenzintervall berechnen. " * 10, encoding="utf-8")
     files = [(p, core.nfc(p.relative_to(core.MIRROR_DIR).as_posix())) for p in app_module.mirror_files()]
     assert client.get("/api/search?q=Nullhyp", headers=AUTH).json()["ausstehend"] == 2
-    assert tutor.index_all(files) == 2 and tutor.index_all(files) == 0  # unverändert: nicht noch einmal
+    assert search_index.index_all(files) == 2 and search_index.index_all(files) == 0  # unverändert: nicht noch einmal
 
     result = client.get("/api/search?q=Nullhyp", headers=AUTH).json()
     assert result["ausstehend"] == 0

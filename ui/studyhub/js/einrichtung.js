@@ -116,7 +116,7 @@ function schrittKi(s) {
       <div class="hinweis-leiste glas-stark">
         <p>${icon("schloss", 14)} <b>Was dabei den Mac verlässt:</b> Nur wenn du eine KI-Funktion nutzt, schickt StudyHub
         Text aus deinen Kursunterlagen an den gewählten Anbieter, bei gescannten Folien die PDF selbst. Mit Gemma über
-        Ollama bleibt alles auf diesem Mac; automatische Tutor-Fragen entstehen nur so. Dein Uni-Passwort geht nie an
+        Ollama bleibt alles auf diesem Mac. Dein Uni-Passwort geht nie an
         einen KI-Anbieter. Was der Anbieter mit den Inhalten macht, regeln seine Nutzungsbedingungen; die Kosten rechnet
         er über deinen API-Key ab.</p>
       </div>

@@ -78,6 +78,8 @@ D Integrationen (`int/`). Stretch-Ziele sind mit ⭐ markiert.
 ### H10 · Sprechender Study-Tutor (ElevenLabs)
 **Verantwortlich:** B · Doku: `docs/tutor/`
 
+**Stand 11.11.2026:** aus `main` entfernt (selten genutzt), vollständig erhalten im Branch `archiv/sprachtutor`.
+
 - [x] Material und Fragen (SQLite/FTS5), Bewertung, Rückfragen mit Quelle
 - [x] Gehirn wählbar: Gemma (Standard), Claude, ChatGPT
 - [x] Push-to-Talk (im Browser) und Vorlesen über ElevenLabs

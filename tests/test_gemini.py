@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 
 import ai
 import core
-import tutor
 from app import app
 
 AUTH = {"x-app-token": "test-token"}
@@ -117,13 +116,16 @@ def test_scanned_pdf_goes_as_pdf(gemini, monkeypatch):
     assert result["input_mode"].startswith("PDF")
 
 
-def test_tutor_can_use_gemini(gemini):
+GRADE_SCHEMA = {"type": "object", "properties": {"verdict": {"type": "string"}, "feedback": {"type": "string"}},
+                "required": ["verdict", "feedback"]}
+
+
+def test_short_complete_with_gemini(gemini):
     calls, replies = gemini
     replies.append(FakeResponse(200, _reply('{"verdict": "correct", "feedback": "Gut"}')))
-    result = ai.complete("gemini", "System", "Bewerte", tutor.GRADE_SCHEMA, "gemini-3.5-flash-lite")
+    result = ai.complete("gemini", "System", "Bewerte", GRADE_SCHEMA, "gemini-3.5-flash-lite")
     assert result == {"verdict": "correct", "feedback": "Gut"}
     assert calls[0]["url"].endswith("/models/gemini-3.5-flash-lite:generateContent")
-    assert "gemini" in tutor.BRAINS
 
 
 def test_errors_are_readable_and_never_show_the_key(gemini):
@@ -137,13 +139,11 @@ def test_errors_are_readable_and_never_show_the_key(gemini):
 
 def test_settings_choose_gemini_and_model(gemini, monkeypatch):
     client = TestClient(app)
-    body = {"ai_provider": "gemini", "gemini_model": "gemini-4-argon", "tutor_brain": "gemini"}
+    body = {"ai_provider": "gemini", "gemini_model": "gemini-4-argon"}
     settings = client.patch("/api/settings", json=body, headers=AUTH).json()
-    assert (settings["ai_provider"], settings["gemini_model"], settings["tutor_brain"]) == \
-        ("gemini", "gemini-4-argon", "gemini")
+    assert (settings["ai_provider"], settings["gemini_model"]) == ("gemini", "gemini-4-argon")
     providers = client.get("/api/ai/providers", headers=AUTH).json()
     assert providers["gemini"]["ready"] is True and providers["gemini_model"] == "gemini-4-argon"
-    assert client.get("/api/tutor/status", headers=AUTH).json()["brain_ready"] is True
 
     client.patch("/api/settings", json={"gemini_model": "gemini-99"}, headers=AUTH)
     assert core.load_config()["gemini_model"] == "gemini-4-argon"  # unbekanntes Modell wird ignoriert

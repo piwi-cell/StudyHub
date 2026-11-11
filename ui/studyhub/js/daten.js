@@ -267,19 +267,6 @@ const MODUL_DETAILS = {
       ],
     },
 
-    // ---------- Sprachtutor ----------
-    // Vorgefertigtes Demo-Gespräch (ohne laufende App); mit App spricht der Sprachtutor.
-    tutor: {
-      thema: 3,
-      verlauf: [
-        { von: "tutor", text: "Hallo Alex! Wir wiederholen Thema 3, Werte von Renten. Erste Frage: Was ist der Unterschied zwischen dem Endwert und dem Barwert einer Rente?" },
-        { von: "du", text: "Der Endwert ist, was alle Zahlungen am Ende wert sind. Der Barwert ist, was sie heute wert sind." },
-        { von: "tutor", text: "Genau richtig! Nächste Frage: Du bekommst fünf Jahre lang am Jahresende 1.000 Euro, der Zins liegt bei 5 Prozent. Wie berechnest du den Barwert?" },
-        { von: "du", text: "Ich nehme den Rentenbarwertfaktor, also q hoch 5 minus 1 durch q hoch 5 mal q minus 1, und multipliziere mit 1.000." },
-        { von: "tutor", text: "Sehr gut, das ergibt rund 4.329 Euro. Achtung, typische Klausurfalle: Kämen die Zahlungen am Jahresanfang, müsstest du noch mit q multiplizieren. Ich lege dir dazu eine Karteikarte an." },
-      ],
-    },
-
     // ---------- Daten für Skills, die man über „+“ hinzufügen kann ----------
     glossar: [
       { begriff: "Annuität", text: "Gleichbleibende Rate aus Zins und Tilgung eines Darlehens." },
