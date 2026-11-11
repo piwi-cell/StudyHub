@@ -1,6 +1,7 @@
 """Installation, Update und Deinstallation (scripts/install.sh, scripts/uninstall.sh) in einer Sandbox:
 eigenes HOME, Ersatz für uname, launchctl, security, pgrep und open. setup.sh und make_app.sh werden in
-einem nachgebauten Projektordner durch Platzhalter ersetzt (kein Download, kein Xcode)."""
+einem nachgebauten Projektordner durch Platzhalter ersetzt (kein Download, kein Xcode). Der Installer von
+Claude Code ist ein lokales Ersatzskript (file://), der Suchpfad enthält nur Systemordner und die Platzhalter."""
 
 import os
 import plistlib
@@ -22,6 +23,12 @@ STUBS = {
 }
 
 
+# Ersatz für den Installer von claude.ai: legt ~/.local/bin/claude an wie das Original; FAKE_CLAUDE_FAIL=1 bricht ab
+CLAUDE_INSTALLER = ('echo "claude-installer" >> "$CALLS"; [ -z "${FAKE_CLAUDE_FAIL:-}" ] || exit 1; '
+                    'mkdir -p "$HOME/.local/bin"; printf "#!/bin/bash\\necho 9.9.9\\n" > "$HOME/.local/bin/claude"; '
+                    'chmod +x "$HOME/.local/bin/claude"')
+
+
 @pytest.fixture
 def sandbox(tmp_path):
     home, bin_dir = tmp_path / "home", tmp_path / "bin"
@@ -30,9 +37,14 @@ def sandbox(tmp_path):
     for name, body in STUBS.items():
         (bin_dir / name).write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
         (bin_dir / name).chmod(0o755)
-    env = {**os.environ, "HOME": str(home), "PATH": f"{bin_dir}:{os.environ['PATH']}", "CALLS": str(tmp_path / "calls")}
+    claude_installer = tmp_path / "claude-install.sh"
+    claude_installer.write_text(f"#!/bin/bash\n{CLAUDE_INSTALLER}\n", encoding="utf-8")
+    # Nur Systemordner im Suchpfad: ein echtes claude auf dem Entwickler-Mac darf die Tests nicht beeinflussen
+    env = {**os.environ, "HOME": str(home), "PATH": f"{bin_dir}:/usr/bin:/bin:/usr/sbin:/sbin",
+           "CALLS": str(tmp_path / "calls"), "ILIAS_LERNER_CLAUDE_INSTALLER": claude_installer.as_uri(),
+           "ILIAS_LERNER_CLAUDE_PATHS": f"{home}/.local/bin/claude:{home}/.claude/local/claude"}
     for key in ("ILIAS_LERNER_INSTALL_DIR", "ILIAS_LERNER_APP", "ILIAS_LERNER_ARCHIVE", "ILIAS_LERNER_NO_OPEN",
-                "ILIAS_LERNER_OLD_INSTALL_DIR", "ILIAS_LERNER_OLD_APP"):
+                "ILIAS_LERNER_OLD_INSTALL_DIR", "ILIAS_LERNER_OLD_APP", "ILIAS_LERNER_SKIP_CLAUDE"):
         env.pop(key, None)
     return home, env, tmp_path / "calls"
 
@@ -77,6 +89,49 @@ def test_install_copies_code_builds_app_and_opens_it(sandbox, tmp_path):
     log = calls.read_text(encoding="utf-8")
     assert "setup --app" in log and f"open {app}" in log
     assert "StudyHub 9.9.9" in result.stdout and "heißt jetzt StudyHub" not in result.stdout
+
+
+def test_install_adds_claude_code_when_missing(sandbox, tmp_path):
+    home, env, calls = sandbox
+    result = _run(_source(tmp_path) / "scripts/install.sh", env)
+    assert result.returncode == 0, result.stderr
+    claude = home / ".local/bin/claude"
+    assert os.access(claude, os.X_OK)
+    assert calls.read_text(encoding="utf-8").count("claude-installer") == 1
+    assert f"Claude Code: gefunden ({claude})" in result.stdout
+
+    calls.unlink()  # Update: Claude Code ist jetzt da und wird nicht noch einmal installiert
+    result = _run(_source(tmp_path, "9.9.10") / "scripts/install.sh", env)
+    assert result.returncode == 0, result.stderr
+    assert "claude-installer" not in calls.read_text(encoding="utf-8")
+    assert "Claude Code ist schon installiert" in result.stdout
+
+
+@pytest.mark.parametrize("where", ["home", "path"])
+def test_install_keeps_an_existing_claude_code(sandbox, tmp_path, where):
+    """Vorhandenes claude (nativer Installer in ~/.local/bin, Homebrew o. Ä. im Suchpfad) nicht doppelt installieren."""
+    home, env, calls = sandbox
+    folder = home / ".claude/local" if where == "home" else tmp_path / "homebrew/bin"
+    folder.mkdir(parents=True)
+    (folder / "claude").write_text("#!/bin/bash\n", encoding="utf-8")
+    (folder / "claude").chmod(0o755)
+    if where == "path":
+        env = {**env, "PATH": f"{env['PATH']}:{folder}"}
+    result = _run(_source(tmp_path) / "scripts/install.sh", env)
+    assert result.returncode == 0, result.stderr
+    assert "claude-installer" not in calls.read_text(encoding="utf-8")
+    assert f"Claude Code: gefunden ({folder / 'claude'})" in result.stdout
+    assert not (home / ".local/bin/claude").exists()
+
+
+def test_install_finishes_without_claude_code_when_its_installer_fails(sandbox, tmp_path):
+    home, env, calls = sandbox
+    result = _run(_source(tmp_path) / "scripts/install.sh", {**env, "FAKE_CLAUDE_FAIL": "1"})
+    assert result.returncode == 0, result.stderr
+    install, app, _ = _paths(home)
+    assert (install / "main.py").exists() and (app / "Contents/Info.plist").exists()
+    assert "Claude Code konnte nicht installiert werden" in result.stdout
+    assert "Claude Code: nicht gefunden" in result.stdout and "Fertig: StudyHub" in result.stdout
 
 
 def test_update_replaces_code_but_keeps_python_and_does_not_open(sandbox, tmp_path):
@@ -300,7 +355,19 @@ def test_installer_app_downloads_installs_and_opens_studyhub(sandbox, tmp_path, 
     assert "setup --app" in log and "StudyHub 9.9.9 ist installiert" in log
     assert log.strip().endswith(f"open {app}")  # genau einmal geöffnet, nach der Erfolgsmeldung
     assert log.count("open ") == 1
-    assert "Fertig: StudyHub 9.9.9" in (home / "Library/Logs/StudyHub-Installation.log").read_text(encoding="utf-8")
+    assert "Claude Code ist installiert" in log and "claude-installer" in log
+    protocol = (home / "Library/Logs/StudyHub-Installation.log").read_text(encoding="utf-8")
+    assert "Fertig: StudyHub 9.9.9" in protocol and "Claude Code: gefunden" in protocol
+
+
+def test_installer_app_reports_missing_claude_code_but_still_opens_studyhub(sandbox, tmp_path, dmg):
+    home, env, calls = sandbox
+    env = {**env, "ILIAS_LERNER_ARCHIVE": _archive(tmp_path), "FAKE_CLAUDE_FAIL": "1"}
+    result = subprocess.run([str(_installer(dmg))], env=env, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    log = calls.read_text(encoding="utf-8")
+    assert "Claude Code konnte nicht installiert werden" in log and "StudyHub 9.9.9 ist installiert" in log
+    assert log.strip().endswith(f"open {_paths(home)[1]}")
 
 
 def test_installer_app_shows_reason_and_log_path_when_install_fails(sandbox, tmp_path, dmg):

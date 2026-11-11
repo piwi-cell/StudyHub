@@ -1,7 +1,7 @@
 #!/bin/bash
 # Baut die DMG zum Installieren ohne Terminal. Darin liegt „StudyHub installieren.app“: Doppelklick führt
-# scripts/install.sh aus (lädt den aktuellen Stand von GitHub, richtet Python ein, legt
-# ~/Applications/StudyHub.app an) und öffnet danach StudyHub. Dieselbe App aktualisiert auch.
+# scripts/install.sh aus (lädt den aktuellen Stand von GitHub, richtet Python ein, installiert Claude Code,
+# falls es fehlt, legt ~/Applications/StudyHub.app an) und öffnet danach StudyHub. Dieselbe App aktualisiert auch.
 #   bash scripts/make_dmg.sh                dist/StudyHub-Installer.dmg
 #   bash scripts/make_dmg.sh <Pfad>.dmg     DMG an anderer Stelle
 # Nur Bordmittel (hdiutil, osascript). Unsigniert: macOS blockiert die App beim ersten Öffnen,
@@ -55,7 +55,7 @@ TITLE="StudyHub installieren"
 
 # Text und Pfade als Argumente: keine Anführungszeichen-Probleme im AppleScript
 osascript -e 'on run argv' -e 'display dialog (item 1 of argv) with title (item 2 of argv) buttons {"Abbrechen", "Installieren"} default button "Installieren" cancel button "Abbrechen" with icon note' -e 'end run' \
-  "StudyHub wird für deinen Benutzer installiert oder aktualisiert. Dafür lädt das Programm den aktuellen Stand und Python aus dem Internet (ca. 300 MB, beim ersten Mal einige Minuten). Admin-Rechte sind nicht nötig.
+  "StudyHub wird für deinen Benutzer installiert oder aktualisiert. Dafür lädt das Programm den aktuellen Stand, Python und – falls noch nicht vorhanden – Claude Code aus dem Internet (einige hundert MB, beim ersten Mal einige Minuten). Admin-Rechte sind nicht nötig.
 
 Einstellungen, Dateien und Zugangsdaten bleiben bei einem Update erhalten." "$TITLE" >/dev/null 2>&1 || exit 0
 
@@ -74,9 +74,15 @@ wait "$progress" 2>/dev/null
 
 if [ "$status" -eq 0 ]; then
   version=$(sed -n 's/^Fertig: StudyHub \([^ ]*\) in .*/\1/p' "$out" | tail -1)
+  # Claude Code: nur melden, ob es da ist; anmelden geht in StudyHub
+  claude="Claude Code ist installiert. Anmelden bei Claude: in StudyHub unter Einstellungen › KI."
+  grep -q '^Claude Code: nicht gefunden' "$out" && claude="Claude Code konnte nicht installiert werden (Protokoll: $LOG). StudyHub läuft trotzdem; für Claude über das Abo die Installation später erneut öffnen."
+  grep -q '^Claude Code:' "$out" || claude=""
   rm -f "$out"
   osascript -e 'on run argv' -e 'display dialog (item 1 of argv) with title (item 2 of argv) buttons {"StudyHub öffnen"} default button 1 with icon note' -e 'end run' \
     "StudyHub $version ist installiert: Benutzerordner › Programme › StudyHub. Tipp: die App ins Dock ziehen.
+
+$claude
 
 Aktualisieren: StudyHub beenden und diese Installer-App erneut öffnen. Die DMG kannst du jetzt auswerfen." "$TITLE" >/dev/null 2>&1
   open "$APP"
@@ -101,7 +107,8 @@ StudyHub installieren
 =====================
 
 Doppelklick auf „StudyHub installieren“ installiert StudyHub (oder aktualisiert es) und öffnet die App.
-Dauer beim ersten Mal: einige Minuten, ca. 300 MB. Admin-Rechte sind nicht nötig.
+Dauer beim ersten Mal: einige Minuten, einige hundert MB (StudyHub, Python und Claude Code).
+Admin-Rechte sind nicht nötig.
 
 Die Installer-App ist nicht von Apple notarisiert. Beim ersten Öffnen meldet macOS deshalb, dass die App
 nicht geprüft werden kann:

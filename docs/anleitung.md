@@ -5,7 +5,7 @@ Kursordner und macht daraus auf Wunsch mit KI Zusammenfassungen, Lernkarten und 
 
 ## Voraussetzungen
 
-- Mac mit macOS 13 oder neuer, ca. 300 MB frei, Internet
+- Mac mit macOS 13 oder neuer, einige hundert MB frei, Internet
 - Uni-Kennung (Login wie bei ILIAS)
 - Keine Admin-Rechte, kein Xcode, kein git nötig
 - Für KI optional: ein eigener API-Key (Claude, ChatGPT oder Gemini) oder Ollama für Gemma auf dem Mac
@@ -14,7 +14,9 @@ Kursordner und macht daraus auf Wunsch mit KI Zusammenfassungen, Lernkarten und 
 
 **Ohne Terminal:** `StudyHub-Installer.dmg` laden (Releases auf github.com/piwi-cell/StudyHub), doppelklicken und im geöffneten Fenster
 „StudyHub installieren“ doppelklicken. Nach der Bestätigung dauert es einige Minuten, dann öffnet sich
-StudyHub. Beim ersten Öffnen blockiert macOS die Installer-App, weil sie nicht von Apple notarisiert ist:
+StudyHub. Der Installer bringt auch Claude Code mit (für Claude über dein Claude-Abo), falls es noch nicht
+auf dem Mac ist; anmelden bei Claude kannst du dich danach in StudyHub unter Einstellungen › KI. Klappt
+die Installation von Claude Code nicht, meldet der Installer das am Ende – StudyHub läuft trotzdem. Beim ersten Öffnen blockiert macOS die Installer-App, weil sie nicht von Apple notarisiert ist:
 Unter macOS 15 und neuer die Meldung schließen, dann Systemeinstellungen › Datenschutz & Sicherheit › bei
 „StudyHub installieren“ auf „Trotzdem öffnen“ klicken; unter macOS 13 und 14 Rechtsklick auf die App ›
 „Öffnen“. Bricht die Installation ab, nennt die App den Grund; das Protokoll liegt unter

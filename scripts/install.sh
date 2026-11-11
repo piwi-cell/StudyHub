@@ -11,6 +11,12 @@
 # Aufruf aus einem entpackten Download oder Klon des Projekts:  bash scripts/install.sh
 # Ohne Projektordner (z. B. per curl … | bash) lädt das Skript den aktuellen Stand von GitHub;
 # ILIAS_LERNER_ARCHIVE ersetzt die Adresse des Archivs (.tar.gz).
+#
+# Claude Code (Befehl „claude“, für Claude über das Abo) wird mitinstalliert, falls es fehlt: offizieller
+# Installer laut code.claude.com/docs/en/setup („curl -fsSL https://claude.ai/install.sh | bash“, ohne
+# Admin-Rechte, legt ~/.local/bin/claude an). Anmelden muss man sich danach in StudyHub.
+# ILIAS_LERNER_CLAUDE_INSTALLER ersetzt die Adresse des Installers, ILIAS_LERNER_CLAUDE_PATHS die
+# geprüften Orte (durch : getrennt); ILIAS_LERNER_SKIP_CLAUDE=1 lässt den Schritt aus.
 # Entfernen: bash "~/Library/Application Support/StudyHub/app/scripts/uninstall.sh"
 set -euo pipefail
 
@@ -21,8 +27,38 @@ OLD_INSTALL_DIR="${ILIAS_LERNER_OLD_INSTALL_DIR:-$HOME/Library/Application Suppo
 OLD_APP="${ILIAS_LERNER_OLD_APP:-$HOME/Applications/ILIAS-Lerner.app}"
 ARCHIVE="${ILIAS_LERNER_ARCHIVE:-https://github.com/piwi-cell/StudyHub/archive/refs/heads/main.tar.gz}"
 MARKER=".ilias-lerner-install"  # nur Ordner mit dieser Datei werden beim Update ersetzt
+CLAUDE_INSTALLER="${ILIAS_LERNER_CLAUDE_INSTALLER:-https://claude.ai/install.sh}"
+# Dieselben Orte wie server/claude_cli.py: aus dem Finder gestartet fehlt Homebrew im PATH
+CLAUDE_PATHS="${ILIAS_LERNER_CLAUDE_PATHS:-$HOME/.local/bin/claude:$HOME/.claude/local/claude:/opt/homebrew/bin/claude:/usr/local/bin/claude}"
 
 fail() { echo "Abbruch: $*" >&2; exit 1; }
+
+# Pfad zu einem vorhandenen „claude“ (Suchpfad, dann die üblichen Orte), sonst leer
+find_claude() {
+  local found candidate
+  found=$(command -v claude 2>/dev/null || true)
+  if [ -n "$found" ] && [ -x "$found" ]; then echo "$found"; return; fi
+  local IFS=:
+  for candidate in $CLAUDE_PATHS; do
+    if [ -f "$candidate" ] && [ -x "$candidate" ]; then echo "$candidate"; return; fi
+  done
+}
+
+# Installiert Claude Code, falls es fehlt. Ein Fehler bricht die Installation von StudyHub nicht ab:
+# die App läuft auch ohne Claude Code (andere KI-Anbieter), die Meldung am Ende sagt Bescheid.
+ensure_claude() {
+  [ -z "${ILIAS_LERNER_SKIP_CLAUDE:-}" ] || return 0
+  local found
+  found=$(find_claude)
+  if [ -n "$found" ]; then
+    echo "Claude Code ist schon installiert ($found)."
+    return 0
+  fi
+  echo "Installiere Claude Code (für Claude über das Abo) …"
+  if ! curl -fsSL "$CLAUDE_INSTALLER" | bash; then
+    echo "Claude Code konnte nicht installiert werden (Installer: $CLAUDE_INSTALLER)."
+  fi
+}
 
 main() {
   [ "$(uname -s)" = "Darwin" ] || fail "StudyHub läuft nur auf macOS."
@@ -78,6 +114,7 @@ main() {
   bash scripts/setup.sh --app
   mkdir -p "$(dirname "$APP")"
   bash scripts/make_app.sh "$APP" >/dev/null
+  ensure_claude
 
   # Umzug vom alten Namen: alte App und alter Programmordner gehen, Daten und Zugangsdaten bleiben
   local renamed=false
@@ -99,6 +136,16 @@ main() {
     echo "ILIAS-Lerner heißt jetzt StudyHub: die alte App ist entfernt, Einstellungen, Dateien und Zugangsdaten"
     echo "bleiben. StudyHub.app ggf. neu ins Dock ziehen. Fragt macOS nach dem Schlüsselbund: „Immer erlauben“."
     echo "Claude Desktop: in StudyHub unter Einstellungen › KI › Claude Desktop auf „Aktualisieren“ klicken."
+  fi
+  if [ -z "${ILIAS_LERNER_SKIP_CLAUDE:-}" ]; then
+    local claude
+    claude=$(find_claude)
+    if [ -n "$claude" ]; then
+      echo "Claude Code: gefunden ($claude). Anmelden in StudyHub unter Einstellungen › KI."
+    else
+      echo "Claude Code: nicht gefunden. StudyHub läuft trotzdem; für Claude über das Abo die Installation"
+      echo "später erneut starten (Internetverbindung prüfen) oder einen anderen KI-Anbieter wählen."
+    fi
   fi
   echo "Hintergrund-Jobs (Abgleich, Bibliotheken) stellt die App beim nächsten Start auf diese Fassung um."
   echo "Aktualisieren: diesen Befehl erneut ausführen. Entfernen:"
