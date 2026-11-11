@@ -17,9 +17,9 @@ def _geoeffnet(monkeypatch) -> list[list[str]]:
 def test_open_browser_behaelt_studyhub_adresse(monkeypatch):
     aufrufe = _geoeffnet(monkeypatch)
     antwort = TestClient(app).post("/api/studyhub/open-browser", headers=AUTH,
-                                   json={"hash": "#/modul/statistik-i/sprachtutor"})
+                                   json={"hash": "#/modul/statistik-i/dokumente"})
     assert antwort.status_code == 200
-    assert aufrufe == [["open", "http://testserver/ui/studyhub/index.html?t=test-token#/modul/statistik-i/sprachtutor"]]
+    assert aufrufe == [["open", "http://testserver/ui/studyhub/index.html?t=test-token#/modul/statistik-i/dokumente"]]
 
 
 def test_open_browser_verwirft_fremde_adressen(monkeypatch):

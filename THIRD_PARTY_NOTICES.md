@@ -4,12 +4,6 @@ StudyHub selbst steht unter „Alle Rechte vorbehalten“ (siehe `LICENSE`). Die
 stammen von anderen und stehen unter ihren eigenen Lizenzen. Die Angaben stammen aus den Paketangaben
 (Stand: `uv.lock`, 29.10.2026); maßgeblich ist jeweils der Lizenztext des Projekts.
 
-## Mitgeliefert
-
-| Bestandteil | Version | Lizenz | Ort |
-|---|---|---|---|
-| ElevenLabs JavaScript-Client (`@elevenlabs/client`) | 1.27.0 | MIT, © 2025 ElevenLabs | `ui/vendor/elevenlabs-client-1.27.0/` (mit Lizenztext) |
-
 ## Bei der Installation geladen
 
 `scripts/install.sh` bzw. `scripts/setup.sh` laden diese Programme von ihren offiziellen Quellen auf den
@@ -58,8 +52,6 @@ PFERD (Programm zum Abruf der ILIAS-Dateien, github.com/Garmelon/PFERD) wird unv
 | jsonschema-specifications | 2025.9.1 | MIT |
 | keyring | 25.7.0 | MIT |
 | markdown-it-py | 4.2.0 | MIT |
-| mcp | 2.3.0 | MIT |
-| mcp-types | 2.3.0 | MIT |
 | mdurl | 0.1.2 | MIT |
 | more-itertools | 11.2.1 | MIT |
 | multidict | 7.2.0 | Apache-2.0 |

@@ -389,3 +389,32 @@ def test_installer_app_does_nothing_when_cancelled(sandbox, tmp_path, dmg):
     assert result.returncode == 0
     assert calls.read_text(encoding="utf-8").count("osascript") == 1
     assert not (home / "Library/Logs/StudyHub-Installation.log").exists()
+
+
+def test_setup_under_rosetta_takes_the_apple_chip_version(sandbox, tmp_path):
+    """Ein Terminal unter Rosetta meldet auf Apple-Chips x86_64; für Intel fehlen fertige Pakete (cryptography).
+    setup.sh lädt trotzdem uv für Apple-Chips und räumt eine frühere Intel-Einrichtung weg."""
+    _, env, calls = sandbox
+    project = tmp_path / "projekt"
+    (project / "scripts").mkdir(parents=True)
+    shutil.copy(ROOT / "scripts/setup.sh", project / "scripts/setup.sh")
+    (project / ".tools/python").mkdir(parents=True)
+    (project / ".venv/bin").mkdir(parents=True)
+    (project / ".tools/uv").write_text("#!/bin/bash\necho uv 0.12.19\n", encoding="utf-8")
+    (project / ".tools/uv").chmod(0o755)
+    bin_dir = tmp_path / "bin-rosetta"
+    bin_dir.mkdir()
+    stubs = {
+        "uname": '[ "$1" = "-m" ] && echo x86_64 || echo Darwin',
+        "sysctl": 'echo 1',
+        "file": 'echo "Mach-O 64-bit executable x86_64"',
+        "curl": 'echo "curl $*" >> "$CALLS"; exit 1',  # kein Download im Test
+    }
+    for name, body in stubs.items():
+        (bin_dir / name).write_text(f"#!/bin/bash\n{body}\n", encoding="utf-8")
+        (bin_dir / name).chmod(0o755)
+    env = {**env, "PATH": f"{bin_dir}:{env['PATH']}"}
+    result = _run(project / "scripts/setup.sh", env, "--app")
+    assert result.returncode != 0
+    assert "uv-aarch64-apple-darwin.tar.gz" in calls.read_text(encoding="utf-8")
+    assert not (project / ".venv").exists() and not (project / ".tools/python").exists()

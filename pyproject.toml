@@ -12,7 +12,6 @@ dependencies = [
     "anthropic==2.3.0",
     "pypdf==6.21.2",
     "python-multipart==0.0.32",
-    "mcp==2.3.0",             # MCP-Server für Claude Desktop (server/mcp_server.py), im Team abstimmen
 ]
 
 [dependency-groups]

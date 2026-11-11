@@ -19,7 +19,7 @@ const EINSTELLUNGEN = {
   umbenennen: null, // Kurs-Titel, der gerade umbenannt wird
 };
 
-const KI_NAMEN = { claude: "Claude", openai: "ChatGPT", gemini: "Gemini", gemma: "Gemma" };
+const KI_NAMEN = { "claude-abo": "Claude (Abo)", claude: "Claude (API-Key)", openai: "ChatGPT", gemini: "Gemini", gemma: "Gemma" };
 
 // „&amp;“ → „&“ usw. (Kurstitel stehen maskiert in HTML-Attributen)
 function entschluesseln(text) {
@@ -144,7 +144,7 @@ EINSTELLUNGEN.seiteKurse = function () {
 // ---------- Seite „Einstellungen“ ----------
 
 EINSTELLUNGEN.seiteEinstellungen = function () {
-  return rahmen("Einstellungen", "ILIAS-Zugang, Abgleich, KI und Sprachtutor.", () => {
+  return rahmen("Einstellungen", "ILIAS-Zugang, Abgleich, KI und Weitergabe.", () => {
     const s = EINSTELLUNGEN.settings;
     const p = EINSTELLUNGEN.providers;
     const busy = (art) => EINSTELLUNGEN.busy === art;
@@ -173,10 +173,16 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
 
     const modelle = (anbieter) => Object.fromEntries(Object.entries(p[anbieter].models || {}).map(([id, name]) => [id, name.split(" (")[0]]));
     const ki = karte("KI", "funken", `
-      ${zeile("Anbieter", "für Zusammenfassungen und Karteikarten", auswahl("ai_provider", s.ai_provider, KI_NAMEN))}
-      <div class="einst-unter">
-        ${zeile("Claude", p.claude.ready ? "" : "API-Key von console.anthropic.com", bereit(p.claude.ready))}
+      ${zeile("Anbieter", "für Zusammenfassungen, Karteikarten und Skills", auswahl("ai_provider", s.ai_provider, KI_NAMEN))}
+      <div class="einst-unter">${claudeAboZeile(p["claude-abo"])}
         ${auswahl("claude_model", s.claude_model, modelle("claude"))}
+      </div>
+      <div class="einst-unter">
+        ${zeile("Markdown für KI-Werkzeuge", "jedes Dokument zusätzlich als schlanke Textfassung, auch für andere KI-Programme",
+          `<button class="knopf-hell" data-aktion="live-e-markdown">Ordner öffnen</button>`)}
+      </div>
+      <div class="einst-unter">
+        ${zeile("Claude (API-Key)", p.claude.ready ? "" : "API-Key von console.anthropic.com", bereit(p.claude.ready))}
         ${geheim("api_key", s.has_api_key, "Anthropic-API-Key")}
       </div>
       <div class="einst-unter">
@@ -196,25 +202,8 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
         ${zeile("Gemma (Gemini API)", p.gemma.local ? "wird genutzt, wenn Ollama nicht läuft" : "mit demselben Google-AI-API-Key wie Gemini, im kostenlosen Kontingent", bereit(p.gemma.api))}
         ${auswahl("gemma_api_model", s.gemma_api_model, modelle("gemma"))}
       </div>
-      <div class="einst-unter">${claudeDesktopZeile(s.claude_desktop)}</div>
       ${kostenZeile()}`,
-    "Kosten entstehen pro Nutzung beim Anbieter. Gemma läuft kostenlos auf dem Mac oder im kostenlosen Kontingent von Google AI Studio.");
-
-    const tutorKarte = karte("Sprachtutor", "stimme", `
-      ${zeile("Wer bewertet deine Antworten", "", auswahl("tutor_brain", s.tutor_brain, KI_NAMEN))}
-      ${zeile("Stimme (ElevenLabs)", s.has_elevenlabs_key ? "Vorlesen und Spracherkennung aktiv" : "ohne Key spricht die Browser-Stimme", bereit(s.has_elevenlabs_key))}
-      ${geheim("elevenlabs_key", s.has_elevenlabs_key, "ElevenLabs-API-Key")}
-      <form class="einst-form" data-form="einst-text" data-name="voice_id">
-        <input class="tutor-feld" name="wert" value="${esc(s.voice_id || "")}" placeholder="Stimmen-ID" aria-label="Stimmen-ID">
-        <button class="knopf-hell">Speichern</button>
-      </form>
-      ${zeile("Freies Gespräch (ElevenLabs Agent)", s.agent_id ? "Agent-ID gespeichert" : "Agent im ElevenLabs-Dashboard anlegen, ID hier eintragen (docs/tutor/SETUP.md)", bereit(Boolean(s.agent_id && s.has_elevenlabs_key)))}
-      <form class="einst-form" data-form="einst-text" data-name="agent_id">
-        <input class="tutor-feld" name="wert" value="${esc(s.agent_id || "")}" placeholder="Agent-ID, z. B. agent_…" aria-label="ElevenLabs Agent-ID">
-        <button class="knopf-hell">Speichern</button>
-      </form>
-      ${zeile("Fragen automatisch vorbereiten", "im Hintergrund mit Gemma lokal (kostenlos), nach jedem Abgleich", schalter("tutor_auto", s.tutor_auto !== false, "Fragen automatisch vorbereiten"))}`,
-    "Das Mikrofon funktioniert nur im Browser, nicht im App-Fenster.");
+    "Mit dem Claude-Abo entstehen keine Kosten pro Anfrage, es zählt dein Abo-Kontingent. Mit API-Keys entstehen Kosten pro Nutzung beim Anbieter. Gemma läuft kostenlos auf dem Mac oder im kostenlosen Kontingent von Google AI Studio.");
 
     const weitergabe = karte("Weitergabe", "pfeil", `
       ${zeile("Telegram", s.telegram ? "Zusammenfassungen und Karten aufs Handy" : "Bot bei @BotFather anlegen, Token hier einfügen",
@@ -232,19 +221,16 @@ EINSTELLUNGEN.seiteEinstellungen = function () {
       ${zeile("Programmordner", esc(s.code_dir), "")}
       ${zeile("Datenordner", esc(s.data_dir), "")}`);
 
-    return `<div class="einst-raster">${zugang}${abgleich}${ki}${tutorKarte}${weitergabe}${info}</div>`;
+    return `<div class="einst-raster">${zugang}${abgleich}${ki}${weitergabe}${info}</div>`;
   });
 };
 
-// Claude Desktop arbeitet über den MCP-Server mit den Kursunterlagen: mit dem Claude-Abo, ohne API-Key (docs/mcp.md)
-function claudeDesktopZeile(c) {
-  if (!c.installed) {
-    return zeile("Claude Desktop", "mit deinem Claude-Abo statt API-Key: Claude Desktop von claude.com/download installieren", bereit(false));
-  }
-  if (c.current) return zeile("Claude Desktop", "eingerichtet: Claude liest deine Kursunterlagen über „studyhub“", bereit(true));
-  const unter = c.mcp ? "Eintrag gehört zu einem anderen Programmordner, z. B. einer älteren Installation"
-    : "mit deinem Claude-Abo statt API-Key arbeiten";
-  return zeile("Claude Desktop", unter, `<button class="knopf-hell" data-aktion="live-e-claude-mcp">${c.mcp ? "Aktualisieren" : "Einrichten"}</button>`);
+// Claude über das Abo (Claude Code headless): installiert? angemeldet? Anmeldung öffnet Terminal und Browser
+function claudeAboZeile(c) {
+  if (!c.installed) return zeile("Claude (Abo)", "Claude Code fehlt: StudyHub-Installer erneut ausführen", bereit(false));
+  if (c.ready) return zeile("Claude (Abo)", c.email ? `angemeldet als ${esc(c.email)}` : "angemeldet, ohne API-Key", bereit(true));
+  return zeile("Claude (Abo)", "einmal mit deinem Claude-Konto anmelden (öffnet Terminal und Browser), danach „Prüfen“",
+    `<button class="knopf-hell" data-aktion="live-e-claude-login">Anmelden</button> <button class="knopf-hell" data-aktion="live-e-claude-pruefen">Prüfen</button>`);
 }
 
 // Geschätzte Kosten des Monats aus GET /api/ai/usage (Listenpreise, gespeicherte Ergebnisse)
@@ -252,7 +238,7 @@ function kostenZeile() {
   const n = EINSTELLUNGEN.nutzung;
   if (!n) return "";
   const ohne = n.ohne_preis ? `, ${n.ohne_preis} ohne Preis (z. B. über Claude Desktop)` : "";
-  return zeile("Kosten diesen Monat", `${n.ergebnisse} Ergebnisse${ohne}. Schätzung nach Listenpreisen; Sprachtutor nicht mitgezählt`,
+  return zeile("Kosten diesen Monat", `${n.ergebnisse} Ergebnisse${ohne}. Schätzung nach Listenpreisen`,
     `<span class="einst-titel">ca. ${dollar(n.kosten_usd)}</span>`);
 }
 
@@ -262,7 +248,6 @@ async function speichern(body, meldung = "Gespeichert") {
   try {
     EINSTELLUNGEN.settings = await api("/api/settings", { method: "PATCH", body });
     EINSTELLUNGEN.providers = await api("/api/ai/providers");
-    if ("elevenlabs_key" in body) LIVE.voiceReady = EINSTELLUNGEN.settings.has_elevenlabs_key;
     zeigeToast(meldung);
   } catch (fehler) {
     zeigeToast(fehler.message);
@@ -296,15 +281,24 @@ EINSTELLUNGEN.klick = async function (ds) {
       neuZeichnen();
       document.querySelector('[data-form="einst-umbenennen"] input')?.select();
       break;
-    case "live-e-claude-mcp":
+    case "live-e-claude-login":
       try {
-        await api("/api/claude/mcp", { method: "POST" });
-        zeigeToast("In Claude Desktop eingetragen · Claude Desktop mit ⌘Q beenden und neu öffnen");
+        await api("/api/ai/claude-login", { method: "POST" });
+        zeigeToast("Im Terminal bestätigen und im Browser anmelden, danach hier „Prüfen“");
       } catch (fehler) {
         zeigeToast(fehler.message);
       }
-      EINSTELLUNGEN.settings = await api("/api/settings");
+      break;
+    case "live-e-claude-pruefen": {
+      const status = await api("/api/ai/claude-status").catch((f) => (zeigeToast(f.message), null));
+      if (!status) break;
+      EINSTELLUNGEN.providers = await api("/api/ai/providers");
+      zeigeToast(status.logged_in ? "Claude ist angemeldet" : "Noch nicht angemeldet");
       neuZeichnen();
+      break;
+    }
+    case "live-e-markdown":
+      api("/api/markdown/zeigen", { method: "POST" }).catch((f) => zeigeToast(f.message));
       break;
     case "live-e-telegram-test":
       api("/api/telegram/test", { method: "POST" }).then(() => zeigeToast("Testnachricht gesendet")).catch((f) => zeigeToast(f.message));

@@ -91,6 +91,9 @@ function schrittKurse() {
 // Hinweis je Anbieter und das Feld für seinen API-Key (Name in PATCH /api/settings, gespeichert?, Platzhalter)
 function kiAnbieter(s, p) {
   return {
+    "claude-abo": { bereit: p["claude-abo"].ready, hinweis: p["claude-abo"].installed
+      ? "mit deinem Claude-Abo, ohne API-Key: einmal anmelden" : "Claude Code fehlt: StudyHub-Installer erneut ausführen",
+    key: null, anmelden: p["claude-abo"].installed && !p["claude-abo"].ready },
     claude: { bereit: p.claude.ready, hinweis: "beste Qualität, liest auch gescannte Folien",
       key: ["api_key", s.has_api_key, "Anthropic-API-Key von console.anthropic.com"] },
     openai: { bereit: p.openai.ready, hinweis: "liest auch gescannte Folien; ein ChatGPT-Plus-Abo reicht nicht",
@@ -113,10 +116,12 @@ function schrittKi(s) {
       ${zeile("Anbieter", "", auswahl("ai_provider", wahl, KI_NAMEN))}
       ${zeile(KI_NAMEN[wahl], a.hinweis, bereit(a.bereit))}
       ${a.key && !a.bereit ? geheim(...a.key) : ""}
+      ${a.anmelden ? `<p><button class="knopf-hell" data-aktion="live-e-claude-login">Bei Claude anmelden</button>
+        <button class="knopf-hell" data-aktion="live-e-claude-pruefen">Prüfen</button></p>` : ""}
       <div class="hinweis-leiste glas-stark">
         <p>${icon("schloss", 14)} <b>Was dabei den Mac verlässt:</b> Nur wenn du eine KI-Funktion nutzt, schickt StudyHub
         Text aus deinen Kursunterlagen an den gewählten Anbieter, bei gescannten Folien die PDF selbst. Mit Gemma über
-        Ollama bleibt alles auf diesem Mac; automatische Tutor-Fragen entstehen nur so. Dein Uni-Passwort geht nie an
+        Ollama bleibt alles auf diesem Mac. Dein Uni-Passwort geht nie an
         einen KI-Anbieter. Was der Anbieter mit den Inhalten macht, regeln seine Nutzungsbedingungen; die Kosten rechnet
         er über deinen API-Key ab.</p>
       </div>

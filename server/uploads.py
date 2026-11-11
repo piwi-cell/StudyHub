@@ -1,7 +1,7 @@
 """Eigene Dateien in einen Kurs hochladen (zusätzlich zu dem, was von ILIAS kommt).
 
 Hochgeladene Dateien landen im Spiegel unter <Kurs>/Eigene Dateien/. Dort behandelt die App sie
-wie ILIAS-Dateien: StudyHub zeigt sie, KI und Tutor arbeiten damit, und der nächste Abgleich
+wie ILIAS-Dateien: StudyHub zeigt sie, die KI arbeitet damit, und der nächste Abgleich
 kopiert sie in den Zielordner. PFERD läuft mit on_conflict = no-delete und löscht sie nicht.
 """
 

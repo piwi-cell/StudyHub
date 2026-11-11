@@ -18,20 +18,11 @@ const LIVE = {
   fehler: null, // Meldung, wenn die App beim Start nicht geantwortet hat
   abgleich: false, // true, solange LIVE.synchronisieren() einen Abgleich verfolgt
   sync: null, // { configured, demo, running, letzter, fehler } aus /api/studyhub
-  voiceReady: false, // ElevenLabs eingerichtet?
   laedt: null, // laufende KI-Aktion, z. B. "thema-<dateiId>"
   anki: null, // { ready, decks, hinweis } von /api/anki/status, erst nach Klick geladen
   ankiLaeuft: false,
   klausurEdit: null, // Modul-ID, solange dort der Klausurtermin bearbeitet wird
   pfade: {}, // Kurz-ID → Dateipfad (Pfade nie direkt ins HTML schreiben)
-  tutor: {
-    kurs: null, status: null, frage: null, verlauf: [], phase: "laden", busy: "", ton: true, lauf: 0, recorder: null, audio: null,
-    agent: null, // laufendes Gespräch mit dem ElevenLabs Agent
-    agentModus: "", // "connecting" | "speaking" | "listening"
-    modus: "abfrage", // "abfrage" (Frage für Frage) | "gespraech" (freies Lerngespräch über /api/tutor/chat)
-    chatFrage: null, // offene Frage im Lerngespräch (ID)
-    chatKurs: null, // Kurs im Lerngespräch; kann sich per Sprache ändern („Lass uns Statistik machen“)
-  },
 };
 
 // Statische Platzhalter der Kopfzeile (Beispieldaten) gleich ersetzen
@@ -73,7 +64,7 @@ async function api(pfad, { method = "GET", body } = {}) {
   return daten;
 }
 
-// Kleiner Markdown-Umbau für Antworten des Tutors
+// Kleiner Markdown-Umbau für KI-Antworten
 function inline(text) {
   return esc(text).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`(.+?)`/g, "<code>$1</code>");
 }
@@ -106,7 +97,7 @@ const LERNBAR = /\.(pdf|txt|md|pptx|docx)$/i;
 // Dateipfade bekommen Kurz-IDs, damit sie nie roh in HTML-Attributen landen.
 function aufbereiten(modulId, d) {
   d.live = true;
-  d.kurs = d.tutor.kurs;
+  // d.kurs: Kursordner, kommt vom Server
   const idVonPfad = {};
   let n = 0;
   const kurzId = (pfad) => {
@@ -152,12 +143,8 @@ LIVE.skillsSpeichern = async function (modulId, skills) {
 };
 
 LIVE.laden = async function () {
-  const [studyhub, tutor] = await Promise.all([
-    api("/api/studyhub"),
-    api("/api/tutor/status").catch(() => null),
-  ]);
+  const studyhub = await api("/api/studyhub");
   LIVE.sync = studyhub.sync;
-  LIVE.voiceReady = Boolean(tutor?.voice_ready);
   LIVE.pfade = {};
 
   for (const id of Object.keys(MODUL_DETAILS)) if (id !== "fima") delete MODUL_DETAILS[id];
@@ -165,6 +152,7 @@ LIVE.laden = async function () {
     aufbereiten(id, d);
     MODUL_DETAILS[id] = d;
     zustand.skills[id] = studyhub.skills?.[d.kurs] || [];
+    d.kiSkills = studyhub.kursSkills?.[d.kurs] || {}; // Formelsammlung, Mindmap, Glossar, Übungsaufgaben (KI)
   }
 
   const daten = studyhub.daten;
@@ -330,6 +318,24 @@ LIVE.klick = async function (ds) {
   const d = MODUL_DETAILS[ds.modul];
   const thema = d?.themen.find((t) => t.nr === Number(ds.nr));
   switch (ds.aktion) {
+    case "live-skill-erstellen": {
+      if (LIVE.laedt) return;
+      LIVE.laedt = `skill-${ds.modul}-${ds.skill}`;
+      neuZeichnen();
+      zeigeToast("Claude liest alle Unterlagen des Kurses, das dauert ein bis zwei Minuten …");
+      try {
+        await api("/api/studyhub/skill-erstellen", { method: "POST", body: { kurs: d.kurs, skill: ds.skill } });
+        await LIVE.laden();
+        zeigeToast("Fertig");
+      } catch (fehler) {
+        zeigeToast(`KI: ${fehler.message}`);
+      } finally {
+        LIVE.laedt = null;
+        neuZeichnen();
+      }
+      break;
+    }
+
     case "live-neu-laden":
       LIVE.fehler = null;
       $("#sync-text").textContent = "Verbinde mit der App …";
@@ -496,26 +502,6 @@ LIVE.klick = async function (ds) {
       vorlesen(`${nurText(thema.titel)}. ${nurText(einfach || thema.kernidee)} ${thema.falle ? `Typische Klausurfalle: ${nurText(thema.falle)}` : ""}`);
       break;
     }
-
-    // --- Sprachtutor ---
-    case "live-tutor-vorbereiten": tutorVorbereiten(ds.modul); break;
-    case "live-tutor-start":
-    case "live-tutor-weiter": tutorNaechsteFrage(); break;
-    case "live-tutor-ton":
-      LIVE.tutor.ton = !LIVE.tutor.ton;
-      if (!LIVE.tutor.ton) LIVE.tutorStopp(false);
-      neuZeichnen();
-      break;
-    case "live-tutor-chat": chatStarten(); break;
-    case "live-tutor-chat-ende": chatBeenden(); break;
-    case "live-tutor-agent": agentStarten(); break;
-    case "live-tutor-agent-stopp": agentBeenden(); break;
-    case "live-im-browser":
-      // Im App-Fenster gibt es kein Mikrofon: StudyHub an derselben Stelle im Standardbrowser öffnen
-      api("/api/studyhub/open-browser", { method: "POST", body: { hash: location.hash } })
-        .then(() => zeigeToast("Im Browser geöffnet – dort das Mikrofon erlauben"))
-        .catch((f) => zeigeToast(f.message));
-      break;
 
     default:
       EINSTELLUNGEN.klick?.(ds);
@@ -710,7 +696,6 @@ LIVE.tabZusammenfassung = function (m, d) {
           <button class="pille" data-aktion="live-karten" data-modul="${m.id}" data-nr="${t.nr}" ${kartenLaedt || themaLaedt ? "disabled" : ""}>
             ${icon(kartenLaedt ? "sync" : "karten", 18)} ${kartenLaedt ? "Karten werden erstellt …" : hatKarten ? "Karten lernen" : "Karten erstellen"}
           </button>
-          <a class="knopf-hell" href="#/modul/${m.id}/sprachtutor">${icon("stimme", 18)} Abfragen lassen</a>
           ${t.eigene ? "" : `<button class="knopf-hell" data-aktion="live-einfacher" data-modul="${m.id}" data-nr="${t.nr}" data-fokus="einfacher"
             aria-pressed="${Boolean(einfach)}" ${themaLaedt ? "disabled" : ""}>${icon("einfach", 18)} ${einfach ? "Original anzeigen" : "Einfacher erklären"}</button>`}
           <button class="knopf-hell" data-aktion="live-vorlesen" data-modul="${m.id}" data-nr="${t.nr}">${icon("lautsprecher", 18)} Vorlesen</button>
@@ -754,459 +739,58 @@ LIVE.tabZusammenfassung = function (m, d) {
     </div>`;
 };
 
-// ---------- Tab „Sprachtutor“ mit echter API und ElevenLabs ----------
+// ---------- Skills mit KI über den ganzen Kurs (POST /api/studyhub/skill-erstellen) ----------
+// Texte kommen vom Server bereits HTML-maskiert (studyhub.escape_tree).
 
-const kannAufnehmen = () => Boolean(navigator.mediaDevices && window.MediaRecorder);
-const URTEIL = { correct: "✓ Richtig", partial: "💡 Teilweise richtig", wrong: "✗ Noch nicht" };
+LIVE.skillKnopf = function (m, d, skillId) {
+  const laeuft = LIVE.laedt === `skill-${m.id}-${skillId}`;
+  const da = d.kiSkills?.[skillId];
+  return `<button class="pille" data-aktion="live-skill-erstellen" data-modul="${m.id}" data-skill="${skillId}" ${LIVE.laedt ? "disabled" : ""}>
+    ${icon(laeuft ? "sync" : "funken", 18)} ${laeuft ? "Wird erstellt …" : da ? "Neu erstellen" : "Mit KI aus allen Unterlagen erstellen"}</button>`;
+};
 
-LIVE.tabSprachtutor = function (m, d) {
-  const t = LIVE.tutor;
-  if (t.kurs !== d.kurs) {
-    LIVE.tutorStopp();
-    Object.assign(t, { kurs: d.kurs, modul: m.id, status: null, frage: null, verlauf: [], phase: "laden", busy: "",
-      modus: "abfrage", chatFrage: null, chatKurs: null });
-    tutorStatusLaden();
+LIVE.skillInhalt = function (m, d, skillId) {
+  const r = d.kiSkills?.[skillId];
+  if (!r) return null;
+  const o = r.output || {};
+  const quelle = (q) => (q ? `<span class="mini">${q}</span>` : "");
+  const stand = `<p class="klein">Erstellt aus ${anzahl(r.quellen.length, "Dokument", "Dokumenten")} · ${datumKurz(new Date(r.created * 1000).toISOString().slice(0, 10))}</p>`;
+  if (skillId === "formelsammlung") {
+    return stand + (o.gruppen || []).map((g) => `
+      <section class="zf-abschnitt">
+        <h3 class="mini-titel">${g.thema}</h3>
+        <div class="formel-raster">${g.formeln.map((f) => `
+          <div class="formel glas-stark"><span class="mini">${f.name}</span><div class="formel-ausdruck">${f.formel}</div>
+            <p class="klein">${f.erklaerung}</p>${quelle(f.quelle)}</div>`).join("")}</div>
+      </section>`).join("");
   }
-  const s = t.status;
-  const mikro = LIVE.voiceReady && kannAufnehmen();
-  const agentAn = Boolean(t.agentModus);
-  const agentMoeglich = Boolean(s?.agent_ready) && s.questions > 0;
-  const auto = s?.auto;
-
-  // Gesprächsmodus (ElevenLabs Agent) hat eigene Zustände; sonst gilt die Frage-Antwort-Phase
-  const statusText = agentAn
-    ? { connecting: "Verbinde mit dem Tutor …", speaking: "Tutor spricht …", listening: "Tutor hört zu – einfach antworten" }[t.agentModus]
-    : {
-      laden: "Lade Tutor …",
-      vorbereiten: t.busy || (auto?.running
-        ? `Fragen werden automatisch vorbereitet: ${auto.done} von ${auto.pending} Dateien`
-        : auto?.enabled && auto.error ? `Automatische Vorbereitung angehalten: ${auto.error}`
-          : "Noch keine Fragen – erst Material vorbereiten"),
-      start: "Bereit, wenn du es bist",
-      spricht: "Tutor spricht …",
-      deinZug: mikro ? "Mikrofon gedrückt halten und antworten" : "Antwort unten eintippen",
-      hoert: "Ich höre zu … loslassen zum Senden",
-      denkt: t.busy || "Einen Moment …",
-      bewertet: "Weiter zur nächsten Frage?",
-    }[t.phase];
-
-  // Knöpfe: Gespräch mit dem Agent (freies Sprechen) oder Abfrage Frage für Frage (Text oder Push-to-Talk)
-  let knopf;
-  if (agentAn) {
-    knopf = `<button class="pille" data-aktion="live-tutor-agent-stopp">Gespräch beenden</button>`;
-  } else {
-    const agentKnopf = !agentMoeglich ? ""
-      : kannAufnehmen()
-        ? `<button class="pille" data-aktion="live-tutor-agent">${icon("stimme", 18)} Gespräch mit dem Tutor</button>`
-        : `<button class="pille" data-aktion="live-im-browser">${icon("stimme", 18)} Gespräch im Browser öffnen</button>`;
-    knopf = {
-      vorbereiten: t.busy ? "" : `<button class="${agentKnopf ? "knopf-hell" : "pille"}" data-aktion="live-tutor-vorbereiten" data-modul="${m.id}">${icon("funken", 18)} Material vorbereiten</button>`,
-      start: `<button class="pille" data-aktion="live-tutor-chat">${icon("stimme", 18)} Lerngespräch</button>${agentKnopf ? agentKnopf.replace('class="pille"', 'class="knopf-hell"') : ""}<button class="knopf-hell" data-aktion="live-tutor-start">${icon("karten", 18)} Frage für Frage</button>`,
-      bewertet: `<button class="pille" data-aktion="live-tutor-weiter">Nächste Frage ${icon("pfeil", 18)}</button>${agentKnopf}`,
-    }[t.phase] || "";
-    if (t.modus === "gespraech" && ["deinZug", "spricht", "denkt", "hoert"].includes(t.phase)) {
-      knopf = `<button class="knopf-hell" data-aktion="live-tutor-chat-ende">Gespräch beenden</button>`;
-    }
+  if (skillId === "glossar") {
+    return stand + `<dl class="glossar glas">${(o.begriffe || []).map((g) => `
+      <div><dt>${g.begriff}</dt><dd>${g.erklaerung} ${quelle(g.quelle)}</dd></div>`).join("")}</dl>`;
   }
-
-  const hinweise = [
-    s && !s.brain_ready && !s.agent_ready ? "Die KI für den Tutor ist noch nicht eingerichtet (Einstellungen › Sprachtutor)." : "",
-    s && s.brain === "gemma" && !agentAn ? "Gemma (lokal) bewertet unzuverlässig – für die Demo besser Claude oder ChatGPT wählen." : "",
-    !LIVE.voiceReady ? "Stimme: ElevenLabs-Key in den Einstellungen hinterlegen, bis dahin spricht der Browser." : "",
-    LIVE.voiceReady && !s?.agent_ready ? "Für das freie Gespräch eine ElevenLabs Agent-ID in den Einstellungen eintragen." : "",
-    LIVE.voiceReady && !kannAufnehmen() ? "Im App-Fenster gibt es kein Mikrofon – sprechen geht im Browser, hier kannst du tippen." : "",
-  ].filter(Boolean).map((h) => `<p class="klein tutor-hinweis">${h}</p>`).join("");
-
-  const blasen = t.verlauf.map((b, i) => `
-    <li class="blase blase-${b.von} ${i === t.verlauf.length - 1 ? "blase-neu" : ""} ${b.urteil ? `urteil-${b.urteil}` : ""}">
-      <span class="mini">${b.von === "tutor" ? (b.urteil ? URTEIL[b.urteil] : "Tutor") : "Du"}</span>
-      ${b.html}
-    </li>`).join("");
-
-  const orbPhase = agentAn ? { connecting: "denkt", speaking: "spricht", listening: "hoert" }[t.agentModus]
-    : t.phase === "bewertet" ? "fertig" : t.phase;
-
-  const eingabe = !agentAn && ["deinZug", "bewertet"].includes(t.phase) ? `
-    <form class="tutor-eingabe" data-form="live-tutor">
-      <label class="sr-only" for="tutor-text">${t.phase === "bewertet" ? "Rückfrage" : "Deine Antwort"}</label>
-      <input id="tutor-text" class="tutor-feld" autocomplete="off" placeholder="${t.modus === "gespraech" ? "Antworten, nachfragen oder Thema wechseln …" : t.phase === "bewertet" ? "Rückfrage, z. B. „Warum ist das so?“" : "Oder Antwort tippen …"}">
-      <button class="knopf-hell">${t.modus === "gespraech" ? "Senden" : t.phase === "bewertet" ? "Fragen" : "Antworten"}</button>
-    </form>` : "";
-
-  return `
-    <div class="tutor">
-      <section class="tutor-buehne glas mit-aura">
-        <div class="aura" aria-hidden="true"></div>
-        <div class="tutor-oben">
-          <span class="hinweis-chip">${icon("stimme", 16)} ${m.name}</span>
-          <button class="icon-knopf" data-aktion="live-tutor-ton" aria-pressed="${!t.ton}" aria-label="${t.ton ? "Ton ausschalten" : "Ton einschalten"}">${icon(t.ton ? "lautsprecher" : "stumm", 18)}</button>
+  if (skillId === "mindmap") {
+    return stand + `
+      <div class="mindmap glas">
+        <div class="mindmap-mitte">${o.zentrum || m.name}</div>
+        <div class="mindmap-aeste">${(o.aeste || []).map((a) => `
+          <div class="mindmap-ast">
+            <span class="mindmap-thema">${a.titel}</span>
+            <div class="mindmap-blaetter">${a.unterpunkte.map((u) => `<span class="chip chip-klein">${u}</span>`).join("")}</div>
+            ${quelle(a.quelle)}
+          </div>`).join("")}
         </div>
-        <button class="orb orb-${orbPhase}" data-mikro="live" ${!agentAn && t.phase === "deinZug" && mikro ? "" : "disabled"}
-          aria-label="Gedrückt halten zum Sprechen">
-          <span class="orb-welle"></span><span class="orb-welle"></span>
-          <span class="orb-kern">${icon("stimme", 36)}</span>
-        </button>
-        <p class="tutor-status" role="status">${esc(statusText)}</p>
-        <div class="tutor-knoepfe">${knopf}</div>
-        ${eingabe}
-        ${s ? `<div class="runde-stats tutor-stats"><span><i class="ampel-punkt ampel-sitzt"></i><b>${s.correct}</b> richtig</span>
-          <span><i class="ampel-punkt ampel-unsicher"></i><b>${s.partial}</b> teilweise</span>
-          <span><i class="ampel-punkt ampel-nochmal"></i><b>${s.wrong}</b> falsch</span></div>` : ""}
-        ${hinweise}
-      </section>
-
-      <section class="tutor-verlauf" aria-label="Gesprächsverlauf">
-        <h2 class="mini-titel">Gespräch${s ? ` · ${s.questions} Fragen aus ${s.files} Dateien` : ""}</h2>
-        ${blasen ? `<ol class="blasen">${blasen}</ol>` : `<p class="klein">Der Tutor stellt dir Fragen zu deinen Unterlagen, bewertet deine Antwort und nennt die Quelle.</p>`}
-      </section>
-    </div>`;
+      </div>`;
+  }
+  if (skillId === "uebungsaufgaben") {
+    return stand + `<ol class="aufgaben-liste">${(o.aufgaben || []).map((a) => `
+      <li class="glas aufgabe-karte">
+        <div class="aufgabe-kopf"><b>${a.titel}</b><span class="badge">${a.schwierigkeit}</span>${quelle(a.quelle)}</div>
+        <p>${a.aufgabe}</p>
+        <details><summary>Lösung anzeigen</summary><div class="zf-md">${a.loesung.replace(/\n/g, "<br>")}</div></details>
+      </li>`).join("")}</ol>`;
+  }
+  return null;
 };
-
-let autoTimer = null;
-async function tutorStatusLaden() {
-  const t = LIVE.tutor;
-  clearTimeout(autoTimer);
-  try {
-    t.status = await api(`/api/tutor/status?course=${encodeURIComponent(t.kurs)}`);
-    LIVE.voiceReady = Boolean(t.status.voice_ready);
-    if (t.phase === "laden" || (t.phase === "vorbereiten" && !t.busy)) t.phase = t.status.questions ? "start" : "vorbereiten";
-    // Während die App im Hintergrund Fragen vorbereitet: alle 4 Sekunden nachsehen (nur in diesem Tab)
-    if (t.status.auto?.running && aktuelleRoute().tab === "sprachtutor") autoTimer = setTimeout(tutorStatusLaden, 4000);
-  } catch (fehler) {
-    zeigeToast(`Tutor: ${fehler.message}`);
-  }
-  neuZeichnen();
-}
-
-// ---------- Gesprächsmodus mit dem ElevenLabs Agent ----------
-// Der Agent führt das Gespräch frei und bewertet selbst. Er holt Fragen und speichert Ergebnisse
-// über zwei Client-Tools, die im Browser laufen und nur mit unserer lokalen API sprechen.
-// Siehe docs/tutor/INTEGRATION.md.
-
-const ELEVENLABS_SDK = "/ui/vendor/elevenlabs-client-1.27.0/elevenlabs-client.js";
-
-function elevenLabsLaden() {
-  if (window.ElevenLabsClient) return Promise.resolve(window.ElevenLabsClient);
-  return new Promise((fertig, fehler) => {
-    const script = document.createElement("script");
-    script.src = ELEVENLABS_SDK;
-    script.onload = () => fertig(window.ElevenLabsClient);
-    script.onerror = () => fehler(new Error("ElevenLabs-SDK nicht ladbar"));
-    document.head.appendChild(script);
-  });
-}
-
-const agentWerkzeuge = {
-  async get_next_question() {
-    const t = LIVE.tutor;
-    const params = new URLSearchParams({ solution: "true", course: t.kurs });
-    if (t.frage) params.set("exclude", t.frage.id);
-    try {
-      const frage = await api(`/api/tutor/next?${params}`);
-      t.frage = { ...frage, solution: undefined }; // Musterlösung nur an den Agent, nicht in die Oberfläche
-      return JSON.stringify({ question: frage.question, solution: frage.solution, source: frage.source });
-    } catch (fehler) {
-      return `Fehler: ${fehler.message}`;
-    }
-  },
-  async record_result({ answer, verdict, feedback } = {}) {
-    // Nur die gerade gestellte Frage darf bewertet werden; die ID kommt aus dem Browser, nicht vom Agent
-    const t = LIVE.tutor;
-    if (!t.frage) return "Fehler: keine Frage gestellt, erst get_next_question aufrufen";
-    try {
-      await api("/api/tutor/record", {
-        method: "POST",
-        body: { question_id: t.frage.id, answer: String(answer || ""), verdict, feedback: String(feedback || "") },
-      });
-      if (URTEIL[verdict]) t.verlauf.push({ von: "tutor", urteil: verdict, html: `<p>${esc(feedback || "")}</p><span class="mini">${esc(t.frage.source || "")}</span>` });
-      api(`/api/tutor/status?course=${encodeURIComponent(t.kurs)}`).then((s) => { t.status = s; neuZeichnen(); }).catch(() => {});
-      return "gespeichert";
-    } catch (fehler) {
-      return `Fehler: ${fehler.message}`;
-    }
-  },
-};
-
-async function agentStarten() {
-  const t = LIVE.tutor;
-  if (t.agent || t.agentModus) return;
-  LIVE.tutorStopp(false);
-  t.agentModus = "connecting";
-  neuZeichnen();
-  try {
-    await navigator.mediaDevices.getUserMedia({ audio: true }).then((s) => s.getTracks().forEach((spur) => spur.stop()));
-    const [sdk, sitzung] = await Promise.all([
-      elevenLabsLaden(),
-      api("/api/tutor/agent-session", { method: "POST", body: { course: t.kurs } }),
-    ]);
-    t.agent = await sdk.Conversation.startSession({
-      signedUrl: sitzung.signed_url,
-      overrides: { agent: { prompt: { prompt: sitzung.prompt }, firstMessage: sitzung.first_message, language: "de" } },
-      dynamicVariables: sitzung.dynamic_variables,
-      clientTools: agentWerkzeuge,
-      onModeChange: ({ mode }) => { t.agentModus = mode; neuZeichnen(); },
-      // Mitschrift: was der Tutor sagt und was du sagst
-      onMessage: ({ source, message }) => {
-        if (!message) return;
-        t.verlauf.push({ von: source === "user" ? "du" : "tutor", html: `<p>${esc(message)}</p>` });
-        neuZeichnen();
-      },
-      onDisconnect: () => { t.agent = null; t.agentModus = ""; neuZeichnen(); },
-      onError: (meldung) => zeigeToast(`Gespräch: ${meldung}`),
-    });
-    if (t.agentModus === "connecting") { t.agentModus = "listening"; neuZeichnen(); }
-  } catch (fehler) {
-    t.agent = null;
-    t.agentModus = "";
-    zeigeToast(fehler.name === "NotAllowedError" ? "Mikrofon nicht erlaubt" : fehler.message);
-    neuZeichnen();
-  }
-}
-
-async function agentBeenden() {
-  const t = LIVE.tutor;
-  const agent = t.agent;
-  t.agent = null;
-  t.agentModus = "";
-  neuZeichnen();
-  if (agent) await agent.endSession().catch(() => {});
-}
-
-async function tutorVorbereiten(modulId) {
-  const t = LIVE.tutor;
-  const d = MODUL_DETAILS[modulId];
-  const dateien = d.dokumente.flatMap((g) => g.dateien).filter((f) => f.lernbar);
-  let neu = 0;
-  for (const [i, f] of dateien.entries()) {
-    t.busy = `Bereite vor: ${i + 1} von ${dateien.length} · ${titelAus(LIVE.pfade[f.id].split("/").pop())}`;
-    neuZeichnen();
-    try {
-      const r = await api("/api/tutor/prepare", { method: "POST", body: { path: f.pfad } });
-      neu += r.skipped ? 0 : r.questions || 0;
-    } catch (fehler) {
-      zeigeToast(`${titelAus(f.pfad.split("/").pop())}: ${fehler.message}`);
-    }
-  }
-  t.busy = "";
-  zeigeToast(`${neu} neue Fragen vorbereitet`);
-  t.phase = "laden";
-  await tutorStatusLaden();
-}
-
-async function tutorNaechsteFrage() {
-  const t = LIVE.tutor;
-  LIVE.tutorStopp(false);
-  const lauf = t.lauf;
-  const params = new URLSearchParams({ course: t.kurs });
-  if (t.frage) params.set("exclude", t.frage.id);
-  try {
-    t.frage = await api(`/api/tutor/next?${params}`);
-  } catch (fehler) {
-    zeigeToast(fehler.message);
-    return;
-  }
-  t.verlauf.push({ von: "tutor", html: `<p>${esc(t.frage.question)}</p><span class="mini">${esc(t.frage.source)}</span>` });
-  t.phase = "spricht";
-  neuZeichnen();
-  await LIVE.sprechen(t.frage.question);
-  if (lauf !== t.lauf) return;
-  t.phase = "deinZug";
-  neuZeichnen();
-  document.querySelector("#tutor-text")?.focus({ preventScroll: true });
-}
-
-async function liveTutorAntworten(text) {
-  const t = LIVE.tutor;
-  if (t.modus === "gespraech") return chatSenden(text);
-  text = text.trim();
-  if (!text || !t.frage) return;
-  const lauf = t.lauf;
-  const rueckfrage = t.phase === "bewertet";
-  t.verlauf.push({ von: "du", html: `<p>${esc(text)}</p>` });
-  t.phase = "denkt";
-  t.busy = rueckfrage ? "Suche im Material …" : "Bewerte deine Antwort …";
-  neuZeichnen();
-  try {
-    if (rueckfrage) {
-      const r = await api("/api/tutor/ask", { method: "POST", body: { question_id: t.frage.id, text } });
-      t.verlauf.push({ von: "tutor", html: `${markdown(r.answer)}<span class="mini">${(r.sources || []).map(esc).join(" · ")}</span>` });
-      t.phase = "spricht";
-      neuZeichnen();
-      await LIVE.sprechen(r.answer);
-    } else {
-      const r = await api("/api/tutor/answer", { method: "POST", body: { question_id: t.frage.id, text } });
-      t.verlauf.push({
-        von: "tutor",
-        urteil: r.verdict,
-        html: `${markdown(r.feedback)}<details><summary>Musterlösung · ${esc(r.source)}</summary><p>${esc(r.solution)}</p></details>`,
-      });
-      t.phase = "spricht";
-      neuZeichnen();
-      api(`/api/tutor/status?course=${encodeURIComponent(t.kurs)}`).then((s) => { t.status = s; neuZeichnen(); }).catch(() => {});
-      await LIVE.sprechen(r.feedback);
-    }
-  } catch (fehler) {
-    zeigeToast(fehler.message);
-  }
-  if (lauf !== t.lauf) return;
-  t.busy = "";
-  t.phase = "bewertet";
-  neuZeichnen();
-}
-
-// --- Lerngespräch: der Tutor fragt frei aus dem Material, gibt Hinweise, erklärt und wechselt das Thema ---
-
-function chatStarten() {
-  const t = LIVE.tutor;
-  LIVE.tutorStopp();
-  Object.assign(t, { modus: "gespraech", verlauf: [], chatFrage: null, chatKurs: t.kurs, frage: null });
-  chatSenden("", true);
-}
-
-function chatBeenden() {
-  const t = LIVE.tutor;
-  LIVE.tutorStopp();
-  Object.assign(t, { modus: "abfrage", chatFrage: null, busy: "", phase: t.status?.questions ? "start" : "vorbereiten" });
-  neuZeichnen();
-}
-
-async function chatSenden(text, eroeffnung = false) {
-  const t = LIVE.tutor;
-  text = text.trim();
-  if (!text && !eroeffnung) return;
-  const lauf = t.lauf;
-  // Verlauf für den Server als reiner Text (die Blasen enthalten HTML)
-  const history = t.verlauf.map((b) => ({ role: b.von === "tutor" ? "tutor" : "user", text: b.text || "" }));
-  if (text) t.verlauf.push({ von: "du", text, html: `<p>${esc(text)}</p>` });
-  t.phase = "denkt";
-  t.busy = "Tutor denkt nach …";
-  neuZeichnen();
-  try {
-    const r = await api("/api/tutor/chat", {
-      method: "POST", body: { text, history, course: t.chatKurs || t.kurs, question_id: t.chatFrage },
-    });
-    if (lauf !== t.lauf) return;
-    t.chatFrage = r.question_id;
-    if (r.course && r.course !== t.chatKurs) { t.chatKurs = r.course; zeigeToast(`Thema: ${r.course}`); }
-    t.verlauf.push({
-      von: "tutor", text: r.say, urteil: r.verdict || undefined,
-      html: `${markdown(r.say)}${r.source ? `<span class="mini">${esc(r.source)}</span>` : ""}`,
-    });
-    if (r.verdict) api(`/api/tutor/status?course=${encodeURIComponent(t.kurs)}`).then((s) => { t.status = s; neuZeichnen(); }).catch(() => {});
-    t.busy = "";
-    t.phase = "spricht";
-    neuZeichnen();
-    await LIVE.sprechen(r.say);
-  } catch (fehler) {
-    zeigeToast(fehler.message);
-    if (text) t.verlauf.pop();
-  }
-  if (lauf !== t.lauf) return;
-  t.busy = "";
-  t.phase = "deinZug";
-  neuZeichnen();
-  document.querySelector("#tutor-text")?.focus({ preventScroll: true });
-}
-
-// Vorlesen über ElevenLabs (/api/tutor/speak). Fällt auf die Browser-Stimme zurück.
-// Claude Desktop mit neuem Chat öffnen; auf einer Modulseite kennt der Auftrag den Kurs
-LIVE.claudeOeffnen = async function (modulId) {
-  const modul = modulId ? findeModul(modulId) : null;
-  try {
-    const antwort = await api("/api/claude/open", { method: "POST", body: { kurs: modul?.live ? modul.kurs : null } });
-    zeigeToast(antwort.mcp ? "Claude geöffnet · Auftrag steht im neuen Chat, mit ↩ senden"
-      : "Claude geöffnet · erst unter Einstellungen › KI › Claude Desktop einrichten");
-  } catch (fehler) {
-    zeigeToast(fehler.message);
-  }
-};
-
-LIVE.sprechen = async function (text) {
-  const t = LIVE.tutor;
-  if (!t.ton || !text) return;
-  const sauber = String(text).replace(/[*#`_]/g, "");
-  if (!LIVE.voiceReady) return sprichBrowser(sauber);
-  try {
-    const antwort = await fetch("/api/tutor/speak", {
-      method: "POST",
-      headers: { "x-app-token": LIVE.token, "content-type": "application/json" },
-      body: JSON.stringify({ text: sauber }),
-    });
-    if (!antwort.ok) throw new Error((await antwort.json().catch(() => ({}))).detail || "Vorlesen fehlgeschlagen");
-    const audio = new Audio(URL.createObjectURL(await antwort.blob()));
-    t.audio = audio;
-    await new Promise((fertig) => {
-      audio.onended = fertig;
-      audio.onerror = fertig;
-      audio.onpause = fertig;
-      audio.play().catch(fertig);
-    });
-  } catch (fehler) {
-    zeigeToast(fehler.message);
-    return sprichBrowser(sauber);
-  }
-};
-
-LIVE.tutorStopp = function (abbrechen = true) {
-  const t = LIVE.tutor;
-  if (abbrechen) {
-    t.lauf++;
-    if (t.agent) agentBeenden(); // Gespräch mit dem Agent beim Verlassen des Tabs beenden
-  }
-  if (t.audio) { t.audio.pause(); t.audio = null; }
-  if ("speechSynthesis" in window) speechSynthesis.cancel();
-  if (t.recorder?.state === "recording") t.recorder.stop();
-};
-
-// Push-to-Talk: Mikrofon-Knopf gedrückt halten
-async function aufnahmeStart() {
-  const t = LIVE.tutor;
-  if (t.recorder || t.phase !== "deinZug") return;
-  LIVE.tutorStopp(false);
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    const teile = [];
-    recorder.ondataavailable = (e) => teile.push(e.data);
-    recorder.onstop = async () => {
-      stream.getTracks().forEach((spur) => spur.stop());
-      t.recorder = null;
-      const blob = new Blob(teile, { type: recorder.mimeType || "audio/webm" });
-      t.phase = "denkt";
-      t.busy = "Verstehe dich …";
-      neuZeichnen();
-      try {
-        const antwort = await fetch("/api/tutor/transcribe", { method: "POST", headers: { "x-app-token": LIVE.token, "content-type": blob.type }, body: blob });
-        const daten = await antwort.json();
-        if (!antwort.ok) throw new Error(daten.detail || "Spracherkennung fehlgeschlagen");
-        if (!daten.text) throw new Error("Nichts verstanden, bitte noch einmal");
-        t.phase = "deinZug";
-        await liveTutorAntworten(daten.text);
-      } catch (fehler) {
-        zeigeToast(fehler.message);
-        t.phase = "deinZug";
-        t.busy = "";
-        neuZeichnen();
-      }
-    };
-    recorder.start();
-    t.recorder = recorder;
-    t.phase = "hoert";
-    neuZeichnen();
-  } catch (fehler) {
-    zeigeToast(`Mikrofon: ${fehler.message}`);
-  }
-}
-
-function aufnahmeStopp() {
-  const r = LIVE.tutor.recorder;
-  if (r?.state === "recording") r.stop();
-}
-
-document.addEventListener("pointerdown", (e) => {
-  if (e.target.closest('[data-mikro="live"]:not([disabled])')) { e.preventDefault(); aufnahmeStart(); }
-});
-document.addEventListener("pointerup", aufnahmeStopp);
 
 // Frage zu einem Dokument (KI-Aufgabe „qa“); die Antwort erscheint im Lernthema unter der Frage
 LIVE.frageStellen = async function (modulId, dateiId, frage) {
@@ -1275,10 +859,6 @@ document.addEventListener("submit", (e) => {
     LIVE.frageStellen(frage.dataset.modul, frage.dataset.id, frage.elements.frage.value);
     return;
   }
-  const form = e.target.closest('[data-form="live-tutor"]');
-  if (!form) return;
-  e.preventDefault();
-  liveTutorAntworten(form.querySelector("input").value);
 });
 
 // ---------- Eigene Dateien hochladen (POST /api/upload, siehe server/uploads.py) ----------
@@ -1357,8 +937,8 @@ document.addEventListener("drop", (e) => {
 });
 
 // ---------- Automatisch neu laden ----------
-// Ergebnisse, die außerhalb von StudyHub entstehen (z. B. Lernthemen aus Claude Desktop über den
-// MCP-Server, Tutor-Fragen aus der Hintergrund-Vorbereitung), erscheinen ohne Neustart: beim
+// Ergebnisse, die außerhalb von StudyHub entstehen (z. B. Markdown-Fassungen und Suchindex aus dem
+// Hintergrund), erscheinen ohne Neustart: beim
 // Zurückwechseln ins Fenster und alle 30 Sekunden. Gezeichnet wird nur, wenn sich etwas geändert hat,
 // und nie während einer Lernrunde, eines Gesprächs, einer KI-Aktion oder in Formularen.
 
@@ -1367,7 +947,7 @@ let zuletztGeladen = Date.now();
 
 const datenStand = () => JSON.stringify([
   DATEN.semester.flatMap((s) => s.module.map((m) => [m.id, m.fortschritt, m.info, m.zeile, m.neu])),
-  Object.entries(MODUL_DETAILS).map(([id, d]) => [id, d.themen, d.karten?.liste?.length, d.tutor?.fragen,
+  Object.entries(MODUL_DETAILS).map(([id, d]) => [id, d.themen, d.karten?.liste?.length,
     d.dokumente?.reduce((n, g) => n + g.dateien.length, 0)]),
 ]);
 
@@ -1375,7 +955,7 @@ function ruhig() {
   if (!LIVE.aktiv || LIVE.laedt || document.hidden || $("#sync-knopf")?.disabled) return false;
   const r = aktuelleRoute();
   if (r.seite && r.seite !== "start") return false; // Kurse, Einstellungen, Einrichtung: Eingaben nicht verwerfen
-  if (["karteikarten", "sprachtutor"].includes(r.tab)) return false; // Lernrunde bzw. Gespräch nicht stören
+  if (r.tab === "karteikarten") return false; // Lernrunde nicht stören
   const feld = document.activeElement;
   return !(feld?.matches("input, textarea, [contenteditable]") && (feld.value || feld.textContent));
 }

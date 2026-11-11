@@ -1,6 +1,6 @@
 """Daten für die StudyHub-Oberfläche (ui/studyhub) im Format der Mock-Daten (ui/studyhub/js/daten.js).
 
-overview() baut aus Kursen, Dateien, KI-Ergebnissen, Tutor-Statistik und Lernplan-Status
+overview() baut aus Kursen, Dateien, KI-Ergebnissen und Lernplan-Status
 genau die Struktur von DATEN und MODUL_DETAILS in ui/studyhub/js/daten.js. Die Oberfläche
 kann die Mock-Daten damit 1:1 ersetzen.
 
@@ -32,6 +32,17 @@ UEBUNG = re.compile(r"tutori|übung|uebung|aufgabe|exercise|tutorial|blatt", re.
 VORLESUNG = re.compile(r"vorlesung|folien|skript|lecture|slides", re.IGNORECASE)
 
 esc = html.escape
+
+
+def escape_tree(value):
+    """Alle Texte in verschachtelten KI-Ergebnissen HTML-maskieren (Zahlen und Wahrheitswerte bleiben)."""
+    if isinstance(value, str):
+        return esc(value)
+    if isinstance(value, list):
+        return [escape_tree(v) for v in value]
+    if isinstance(value, dict):
+        return {k: escape_tree(v) for k, v in value.items()}
+    return value
 
 
 # --- Lernplan-Status (pro Datei: status, notiz) -------------------------------
@@ -78,7 +89,7 @@ def _questions(entry: dict) -> list[dict]:
 
 def search_hits(query: str, files: list[dict], text_hits: list[dict], limit: int = 25) -> list[dict]:
     """Treffer für die Suche oben in StudyHub: erst Dateinamen (alle Wörter im Pfad), dann Textstellen.
-    files: sichtbare Dateien wie /api/files; text_hits: tutor.search_material(). Alles HTML-maskiert."""
+    files: sichtbare Dateien wie /api/files; text_hits: search_index.search_material(). Alles HTML-maskiert."""
     words = [w.casefold() for w in re.findall(r"\w{2,}", query)]
     if not words:
         return []
@@ -264,16 +275,21 @@ def from_summary(markdown: str) -> dict:
 # --- Aufbau -------------------------------------------------------------------
 
 
+def is_own(folder: str) -> bool:
+    """Selbst hochgeladen (Eigene Dateien, Eigene Zusammenfassungen) statt offiziell aus ILIAS."""
+    top = (folder or "").split("/")[0]
+    return top in (uploads.FOLDER, uploads.SUMMARY_FOLDER)
+
+
 def _group_order(folder: str) -> tuple[int, str]:
     if not folder or VORLESUNG.search(folder):
         return 0, folder
     return (1 if "tutori" in folder.lower() else 2 if UEBUNG.search(folder) else 3), folder
 
 
-def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor_stats: dict[str, dict],
-             state: dict, now: float | None = None, karten: dict | None = None, exams: dict | None = None,
-             hidden: list[dict] | None = None) -> dict:
-    """files: wie /api/files; ai_entries: Pfad → KI-Cache-Eintrag; tutor_stats: Kursordner → tutor.stats();
+def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], state: dict, now: float | None = None,
+             karten: dict | None = None, exams: dict | None = None, hidden: list[dict] | None = None) -> dict:
+    """files: wie /api/files; ai_entries: Pfad → KI-Cache-Eintrag;
     karten: Lernstand und eigene Karten (cards.load()); exams: Kursordner → Klausurdatum;
     hidden: ausgeblendete Dateien (wie files), nur zum Wieder-Einblenden im Tab „Dokumente“."""
     now = now or time.time()
@@ -281,15 +297,20 @@ def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor
     exams = exams or {}
 
     # Module = Kursordner (Übungsgruppen liegen als Unterordner darin), Semester aus dem ILIAS-Titel
-    semester_by_name, modules = {}, {}
+    semester_by_name, modules, switched_off = {}, {}, set()
     for title, settings in config.get("courses", {}).items():
         name = settings["name"].split("/")[0]
         if settings.get("group") or "/" in settings["name"]:
             continue
         if settings.get("sync"):
             modules.setdefault(name, [])
+        else:
+            switched_off.add(core.nfc(name))
         if sem := semester_of(title):
             semester_by_name[name] = sem
+    # Abgewählte Kurse bleiben ausgeblendet, auch wenn ihr Ordner noch alte Dateien im Spiegel hat
+    switched_off -= {core.nfc(name) for name in modules}
+    files = [f for f in files if core.nfc(f["course"]) not in switched_off]
     for f in files:
         modules.setdefault(f["course"], []).append(f)
 
@@ -301,7 +322,7 @@ def overview(config: dict, files: list[dict], ai_entries: dict[str, dict], tutor
             module_id, n = f"{base}-{n}", n + 1
         ids[name] = module_id
         details[module_id], module_rows[name] = _module(name, module_id, modules[name], ai_entries,
-                                                        tutor_stats.get(name, {}), state, now, karten,
+                                                        state, now, karten,
                                                         _exam(exams.get(core.nfc(name)), now))
         details[module_id]["ausgeblendet"] = []
     for f in sorted(hidden or [], key=lambda f: f["name"].casefold()):
@@ -338,7 +359,7 @@ def _card(cid: str, source: str, front: str, back: str, karten: dict, now: float
             **cardstore.state_of(karten["reviews"].get(cid), now), **extra}
 
 
-def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stats: dict, state: dict,
+def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, state: dict,
             now: float, karten: dict, klausur: dict | None) -> tuple[dict, dict]:
     files = sorted(files, key=lambda f: (_group_order(f["folder"]), f["name"].casefold()))
     status = {f["path"]: state.get(f["path"], {}) for f in files}
@@ -366,7 +387,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
             i += 1
             kapitel.append({"nr": i, "titel": label,
                             "eintraege": [entry(f, f"{i}.{n}") for n, f in enumerate(group, 1)]})
-        dokumente.append({"gruppe": label, "dateien": [{
+        dokumente.append({"gruppe": label, "eigen": is_own(folder), "dateien": [{
             "name": esc(f["name"]), "pfad": f["path"], "datum": time.strftime("%Y-%m-%d", time.localtime(f["mtime"])),
             "seiten": None, "groesse": f["size"], "typ": esc(f["ext"].upper() or "Datei"),
             "zusammengefasst": bool(f["ai"]["summary"]) or bool((ai_entries.get(f["path"]) or {}).get("thema")),
@@ -440,7 +461,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
             else "Noch nicht gestartet" if gesamt else "Noch keine Dateien")
     row = {"id": module_id, "name": esc(name), "fortschritt": fortschritt, "info": info,
            "zeile": f"{basis['erledigt']} von {gesamt} Einträgen", "neu": neu, "kurs": name,
-           "karten": faellig, "nochmal": stats.get("wrong", 0) + basis["nochmal"], "klausur": klausur}
+           "karten": faellig, "nochmal": basis["nochmal"], "klausur": klausur}
     detail = {
         "zusammenfassungFertig": bool(themen),
         "lernplan": {"basis": basis, "kapitel": kapitel, "bereiche": bereiche},
@@ -452,8 +473,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
                                      if first and first["thema"] else first["quelle"] if first else ""),
                    "runde": {"gewusst": 0, "nochmal": 0}, "liste": stapel,
                    "naechste": min((k["inTagen"] for k in stapel if not k["faellig"]), default=None)},
-        "tutor": {"kurs": name, "fragen": stats.get("questions", 0), "beantwortet": stats.get("answered", 0),
-                  "richtig": stats.get("correct", 0), "thema": themen[0]["nr"] if themen else None, "verlauf": []},
+        "kurs": name,
         "glossar": sorted({g["begriff"]: g for g in glossar}.values(), key=lambda g: g["begriff"].casefold()),
         "probeklausur": [],
     }

@@ -36,13 +36,14 @@ if (TOKEN) {
 | `DATEN.naechsteKlausur` | `null` | Klausurtermine kennt ILIAS nicht → Zeile „Klausur in X Tagen“ ausblenden |
 | `dokumente[].dateien[].seiten` | `null` | stattdessen `groesse` (Bytes) und `typ` („PDF“) |
 | `dokumente[].dateien[].pfad` | neu | für Öffnen und KI-Aufrufe |
+| `dokumente[].eigen` | neu | `true` für selbst hochgeladene Ordner (Eigene Dateien, Eigene Zusammenfassungen), sonst offiziell aus ILIAS |
 | `themen[]` | ein Thema pro Dokument mit KI-Ergebnis | kann **leer** sein → Hinweis „Noch keine Zusammenfassung“ statt `d.themen[0]` |
 | `themen[].einfacher` | evtl. `""` | nur vorhanden, wenn das strukturierte Thema erzeugt wurde |
 | `themen[].pfad`, `.strukturiert`, `.zusammenfassung` | neu | ob das Thema schon strukturiert ist (sonst aus der Markdown-Zusammenfassung abgeleitet) |
 | `karten.liste` | kann leer sein | → Hinweis statt „Runde geschafft“ |
 | `karten.beispielThema` | neu | ersetzt den festen Text „Thema 3 · Werte von Renten“ im Widget |
 | `karten.liste[].formel` | `{ text: "" }` | KI-Karten haben keine eigene Formel |
-| `tutor` | `{ kurs, fragen, beantwortet, richtig, thema, verlauf: [] }` | kein vorgefertigtes Gespräch mehr, siehe unten |
+| `kurs` | neu | Kursordner des Moduls (für Hochladen, Skills, Karten) |
 | `lernplan` | Kapitel = Vorlesungsordner, Bereiche = Tutorium-/Übungsordner, ein Eintrag pro Datei; `id` = Dateipfad | Status wird gespeichert, siehe unten |
 
 Alle Texte sind schon HTML-maskiert (Dateinamen und KI-Texte können kein Markup einschleusen).
@@ -59,9 +60,9 @@ Formeln enthalten nur `<sub>`/`<sup>`, Kernideen nur `<b>` und `<br>`.
 | Zusammenfassung erstellen (Thema) | `POST /api/ai/run` `{ path, task: "thema" }` (ca. 10 s), danach `/api/studyhub` neu laden |
 | „Karten erstellen“ | `POST /api/ai/run` `{ path, task: "flashcards" }`, danach neu laden |
 | „Einfacher erklären“ | steckt im Thema (`einfacher`); fehlt es, erst `task: "thema"` erzeugen |
-| Vorlesen (`sprich`) | `POST /api/tutor/speak` `{ text }` → MP3 (nur wenn ElevenLabs-Key hinterlegt, sonst Browser-Stimme) |
-| Sprachtutor | `POST /api/tutor/prepare` `{ path }` pro Datei (einmalig), `GET /api/tutor/next?course=<tutor.kurs>`, `POST /api/tutor/answer` `{ question_id, text }`, Rückfrage `POST /api/tutor/ask`, Lerngespräch `POST /api/tutor/chat` `{ text, history, course, question_id }`, Mikrofon: `POST /api/tutor/transcribe` (Audio-Body) |
-| „✦ Claude“ (Top-Bar) | `POST /api/claude/open` `{ kurs? }` öffnet Claude Desktop mit neuem Lerncoach-Chat (`kurs` nur, wenn es ihn gibt) → `{ ok, mcp }`; `mcp: false` = MCP-Server noch nicht in Claude Desktop eingetragen |
+| Vorlesen (`sprich`) | Stimme des Systems (Browser-Sprachausgabe), kein Server-Aufruf |
+| Skill mit KI (Formelsammlung, Mindmap, Glossar, Übungsaufgaben) | `POST /api/studyhub/skill-erstellen` `{ kurs, skill }`; Ergebnisse in `kursSkills[<kurs>][<skill>]` von `GET /api/studyhub` (Texte HTML-maskiert) |
+| Claude-Abo | `GET /api/ai/claude-status` → `{ installed, logged_in, method, email }`, `POST /api/ai/claude-login` (Terminal + Browser), `POST /api/markdown/zeigen` (Markdown-Ordner im Finder) |
 | Karte bewerten (Nochmal/Schwer/Gewusst) | `POST /api/cards/review` `{ id, bewertung }` → `{ inTagen, faellig }` (SM-2, `server/cards.py`). Karten in `/api/studyhub` tragen `id`, `neu`, `faellig`, `inTagen`; fällige zuerst. `karten.faellig` zählt fällige, `karten.naechste` = Tage bis zur nächsten |
 | Anki | `GET /api/anki/status` → `{ ready, decks, hinweis? }`, `POST /api/anki/import` `{ kurs, deck }`, `POST /api/anki/export` `{ kurs }` (Deck `StudyHub::<Kurs>`). Braucht laufendes Anki mit AnkiConnect (Code 2055492159) |
 | Karten als Textdatei | `POST /api/cards/import` (multipart `kurs`, `file`; Tabulator, Anki „Notizen als Text“), `GET /api/cards/export?kurs=…` (Download) bzw. `POST /api/cards/export` `{ kurs }` (Datei in `~/Downloads`) |
@@ -69,7 +70,7 @@ Formeln enthalten nur `<sub>`/`<sup>`, Kernideen nur `<b>` und `<br>`.
 | Eigene Zusammenfassung schreiben | `POST /api/summaries` `{ kurs, titel, text }` → Markdown unter `<Kurs>/Eigene Zusammenfassungen/`; Themen daraus tragen `eigene: true` |
 | Seite „Bibliotheken“ (`#/bibliotheken`) | `GET /api/libraries` → `{ stand, alterMinuten, taktMinuten, seit, messungen, jetzt: { wochentag, stunde }, wochentage, bereiche: [{ slug, name, url, info, aktuell: { prozent, plaetze, frei, stufe } \| null, offen, oeffnet, zeiten, typischJetzt, woche: [7 × 24 × { stunde, mittel, messungen }] }], hintergrund, quelle, intervallMinuten, alarmAbstand, demo, telegram: { verbunden, bot, alarm: { aktiv, schwelle, bereiche } } }`; „Jetzt messen“ `POST /api/libraries/refresh`; Hintergrund `PATCH /api/libraries/background` `{ aktiv }`; Telegram verbinden `POST /api/telegram/connect` `{ token, chat? }` (ohne `chat` wartet der Server bis zu 5 Min. auf eine Nachricht an den Bot); Meldungen „voll / wieder Platz“ `PATCH /api/libraries/alerts` `{ aktiv?, schwelle? (50–100), bereiche? (leer = alle) }`; Stand an Telegram `POST /api/libraries/telegram` (`server/libraries.py`, Bot-Befehle in `server/integrations.py`) |
 | „Modul aus ILIAS hinzufügen“ | Seite „Kurse“ (`#/kurse`, `/api/courses`) |
-| Suche oben | `GET /api/search?q=` → `{ treffer: [{ pfad, name, kurs, seite, ausschnitt }], ausstehend }`: erst Dateinamen, dann Textstellen (Volltextindex `tutor.index_all()` im Hintergrund, `<mark>` im Ausschnitt) |
+| Suche oben | `GET /api/search?q=` → `{ treffer: [{ pfad, name, kurs, seite, ausschnitt }], ausstehend }`: erst Dateinamen, dann Textstellen (Volltextindex `search_index.index_all()` im Hintergrund, `<mark>` im Ausschnitt) |
 | Frage zu einem Dokument | `POST /api/ai/run` `{ path, task: "qa", question }`; Themen tragen `fragen: [{ frage, antwort }]` (neueste zuerst) |
 | Weitergeben, Finder | `POST /api/share` `{ path, task: "thema" \| "summary" \| "flashcards" \| "original", target }`, `POST /api/reveal` `{ path }` |
 | Skills (eigene Tabs) | `PATCH /api/studyhub/skills` `{ kurs, skills }`; `/api/studyhub` liefert `skills: { Kurs: [...] }` |
@@ -79,7 +80,7 @@ im Browser öffnen: `POST /api/studyhub/open-browser` `{ hash }`.
 
 ## Eigene Dateien hochladen
 
-`POST /api/upload` (multipart): Feld `course` = Kursordner (`tutor.kurs` eines Moduls), ein oder
+`POST /api/upload` (multipart): Feld `course` = Kursordner (`kurs` eines Moduls), ein oder
 mehrere Felder `files`, optional `art` = `material` (Standard) oder `zusammenfassung` (Ablage unter
 `<Kurs>/Eigene Zusammenfassungen/`, erscheint im Tab „Zusammenfassung“, nicht im Lernplan).
 Antwort `{ saved: [Pfade], errors: [Meldungen] }`; teilweise Erfolg ist möglich.

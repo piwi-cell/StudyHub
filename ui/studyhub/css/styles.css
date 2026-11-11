@@ -1090,6 +1090,11 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
 .dok-eintrag.ist-erledigt .zeile-titel { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--trenner); }
 .dok-eintrag .notiz { padding-left: 88px; }
 .dok-gruppe-kopf { align-items: center; }
+.dok-quelle { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.dok-quelle + .dok-quelle { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--trenner); }
+.dok-quelle-kopf { align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.dok-quelle-kopf h2 { font-size: 1.35em; }
+.dok-quelle .dok-gruppe-kopf h2 { font-size: 1em; color: var(--body); }
 .dok-ausblenden { opacity: .45; transition: opacity var(--dauer) var(--ease); }
 .dok-eintrag:hover .dok-ausblenden, .dok-ausblenden:focus-visible { opacity: 1; }
 .dok-ausgeblendet { margin-top: 8px; }
@@ -1347,107 +1352,14 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
 .runde-stats b { color: var(--ink); }
 
 /* =====================================================
-   Tab: Sprachtutor
-   ===================================================== */
-.tutor {
-  display: grid;
-  grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-.tutor-buehne {
-  position: sticky;
-  top: 92px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  padding: 20px 24px 28px;
-}
-.tutor-buehne .aura { top: 60px; left: 50%; transform: translateX(-50%); width: 380px; }
-.tutor-oben { display: flex; align-items: center; justify-content: space-between; width: 100%; }
-
-/* Großer Mikrofon-Knopf */
-.orb {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 176px;
-  height: 176px;
-  margin: 12px 0 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-}
-.orb:disabled { cursor: default; }
-.orb-kern {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  place-items: center;
-  width: 128px;
-  height: 128px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #3E7259, var(--gruen-dunkel) 70%);
-  color: #FAF8F5;
-  box-shadow: inset 0 2px 1px rgba(255, 255, 255, .25), inset 0 -6px 14px rgba(0, 0, 0, .35), 0 18px 40px -12px rgba(31, 61, 46, .7);
-  transition: transform 300ms var(--ease);
-}
-.orb-deinZug .orb-kern { animation: atmen 2.4s ease-in-out infinite; }
-.orb-deinZug:hover .orb-kern { transform: scale(1.04); }
-.orb-start .orb-kern, .orb-fertig .orb-kern, .orb-laden .orb-kern, .orb-vorbereiten .orb-kern { filter: saturate(.6); opacity: .85; }
-
-.orb-welle {
-  position: absolute;
-  inset: 24px;
-  border-radius: 50%;
-  border: 2px solid rgba(47, 90, 68, .35);
-  opacity: 0;
-}
-.orb-hoert .orb-welle, .orb-spricht .orb-welle { animation: welle 1.6s var(--ease) infinite; }
-.orb-hoert .orb-welle:nth-child(2), .orb-spricht .orb-welle:nth-child(2) { animation-delay: .8s; }
-.orb-spricht .orb-welle { border-color: rgba(214, 190, 150, .9); }
-
-@keyframes welle { from { transform: scale(.9); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
-@keyframes atmen { 50% { transform: scale(1.05); } }
-
-.tutor-status { font-size: 17px; font-weight: 500; color: var(--ink); text-align: center; min-height: 26px; }
-.tutor-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-
-.tutor-verlauf { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
-.blasen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-.blase {
-  max-width: 85%;
-  padding: 14px 18px;
-  border-radius: var(--r-20);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.blase p { color: var(--ink); line-height: 1.55; }
-.blase-tutor {
-  align-self: flex-start;
-  background: var(--glas-stark);
-  border: var(--glas-kante);
-  box-shadow: var(--glas-rim), var(--schatten-1);
-  border-bottom-left-radius: 8px;
-}
-.blase-du {
-  align-self: flex-end;
-  background: var(--gruen-dunkel);
-  border-bottom-right-radius: 8px;
-}
-.blase-du p, .blase-du .mini { color: #FAF8F5; }
-.blase-du .mini { opacity: .8; }
-.blase-neu { animation: einblenden 320ms var(--ease); }
-
-/* =====================================================
    Tab: Skill hinzufügen & eigene Skills
    ===================================================== */
 .skill-kopf { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .skill-kopf h2 { display: flex; align-items: center; gap: 10px; font-size: var(--gr-titel); }
 .skill-kopf h2 .icon { color: var(--gruen); }
+.skill-knoepfe { display: flex; flex-wrap: wrap; gap: 8px; }
+.aufgabe-karte details { margin-top: 8px; }
+.aufgabe-karte summary { cursor: pointer; color: var(--body); }
 
 .skill-raster {
   display: grid;
@@ -1561,8 +1473,7 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
 .begriff-name { font-weight: 600; color: var(--ink); }
 .begriff-text { font-size: 14px; line-height: 1.5; }
 
-/* Sprachtutor mit echter API */
-.tutor-eingabe { display: flex; gap: 8px; width: 100%; }
+/* Eingabefelder (Einstellungen, Einrichtung) */
 .tutor-feld {
   flex: 1;
   min-width: 0;
@@ -1576,7 +1487,6 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
   font-size: 14px;
   color: var(--ink);
 }
-.tutor-stats { justify-content: center; font-size: 13px; }
 
 /* Eigene Zusammenfassungen */
 .zf-eigene { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 4px; }
@@ -1606,17 +1516,6 @@ textarea.eingabe { resize: vertical; min-height: 240px; line-height: 1.55; }
 .badge-knopf { cursor: pointer; border: 0; font-family: inherit; font-size: var(--gr-mini); font-weight: 600; color: inherit; }
 .badge-knopf:hover { background: rgba(255, 255, 255, .9); }
 .badge-edit input { font-family: inherit; font-size: var(--gr-mini); border: 0; background: transparent; color: var(--ink); }
-.tutor-hinweis { text-align: center; }
-.blase details { margin-top: 6px; font-size: 14px; }
-.blase summary { cursor: pointer; color: var(--body); }
-.blase .zf-md, .blase p { margin: 0; }
-.blase-tutor.urteil-correct { background: var(--gruen-hell); }
-.blase-tutor.urteil-correct > .mini { color: var(--gruen-dunkel); font-weight: 600; }
-.blase-tutor.urteil-partial { background: var(--sand-bg); }
-.blase-tutor.urteil-partial > .mini { color: var(--sand-text); font-weight: 600; }
-.blase-tutor.urteil-wrong { background: var(--warn-bg); }
-.blase-tutor.urteil-wrong > .mini { color: var(--warn-text); font-weight: 600; }
-.blase ul { margin: 4px 0 0; padding-left: 20px; }
 
 /* =====================================================
    Seiten „Kurse“ und „Einstellungen“ (einstellungen.js)
@@ -1753,8 +1652,8 @@ a.avatar { display: grid; place-items: center; text-decoration: none; }
    Kleinere Bildschirme
    ===================================================== */
 @media (max-width: 1000px) {
-  .zf-layout, .tutor { grid-template-columns: minmax(0, 1fr); }
-  .zf-themen, .tutor-buehne { position: static; }
+  .zf-layout { grid-template-columns: minmax(0, 1fr); }
+  .zf-themen { position: static; }
   .zf-themen ul { display: flex; overflow-x: auto; gap: 4px; scrollbar-width: none; }
   .zf-themen .thema-knopf { white-space: nowrap; width: auto; }
   .zf-themen .thema-knopf .zeile-titel { white-space: nowrap; }
@@ -1792,8 +1691,8 @@ a.avatar { display: grid; place-items: center; text-decoration: none; }
 }
 @media (max-width: 1100px) {
   .logo { min-width: 0; }
-  #sync-knopf .knopf-text, #claude-knopf .knopf-text { display: none; }
-  #sync-knopf, #claude-knopf { width: 40px; padding: 0; justify-content: center; }
+  #sync-knopf .knopf-text { display: none; }
+  #sync-knopf { width: 40px; padding: 0; justify-content: center; }
   .widget-raster { grid-template-columns: minmax(0, 1fr); }
 }
 
@@ -1801,13 +1700,13 @@ a.avatar { display: grid; place-items: center; text-decoration: none; }
   .nur-mobil { display: inline-grid; }
   .rahmen { grid-template-columns: 1fr; padding: 8px 16px 32px; }
   .topbar { padding: 12px 16px; gap: 12px; }
-  .logo span:last-child, .suche kbd, #sync-knopf .knopf-text, #claude-knopf .knopf-text { display: none; }
+  .logo span:last-child, .suche kbd, #sync-knopf .knopf-text { display: none; }
   .logo { flex-shrink: 0; }
   .suche-rahmen { min-width: 0; }
   .suche { padding: 0 12px; }
   .suche input { width: 100%; }
   .topbar-rechts { gap: 8px; flex-shrink: 0; }
-  #sync-knopf, #claude-knopf { width: 40px; padding: 0; justify-content: center; }
+  #sync-knopf { width: 40px; padding: 0; justify-content: center; }
 
   /* Sidebar wird zum ausklappbaren Menü */
   .sidebar {

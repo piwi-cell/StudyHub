@@ -16,7 +16,6 @@ in dem der Lerncoach-Auftrag schon im Eingabefeld steht (gesendet wird erst nach
 """
 
 import html
-import json
 import re
 import subprocess
 import tempfile
@@ -24,14 +23,13 @@ import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import quote
 
 import httpx2 as httpx  # kommt mit dem Anthropic-SDK, gleiche API wie httpx
 import keyring
 import keyring.errors
 
 import telegram_bot
-from core import KEYCHAIN_SERVICE, PYTHON, load_config, log
+from core import KEYCHAIN_SERVICE, load_config, log
 
 REMARKABLE_USB = "http://10.11.99.1"
 REMARKABLE_APP_NAMES = ("reMarkable.app", "reMarkable Desktop.app")
@@ -39,12 +37,6 @@ ANKI_URL = "http://127.0.0.1:8765"
 ANKI_ADDON = "2055492159"
 ANKI_BASIC_MODELS = ("Basic", "Einfach")  # Standard-Notiztyp in englischem bzw. deutschem Anki
 ANKI_DECK_PREFIX = "StudyHub"
-CLAUDE_NEW_CHAT = "claude://claude.ai/new?q="  # Claude Desktop kürzt q bei etwa 14.000 Zeichen
-CLAUDE_CONFIG = Path.home() / "Library/Application Support/Claude/claude_desktop_config.json"
-MCP_NAME = "studyhub"  # Name des Eintrags in claude_desktop_config.json (docs/mcp.md)
-OLD_MCP_NAMES = ("ilias-lerner",)  # bis 1.0; configure_claude_mcp() ersetzt ihn
-MCP_SERVER = Path(__file__).resolve().parent / "mcp_server.py"
-CLAUDE_APPS = (Path("/Applications/Claude.app"), Path.home() / "Applications/Claude.app")
 
 
 class ShareError(Exception):
@@ -235,101 +227,6 @@ def text_to_pdf(text: str, name: str) -> Path:
 
 
 # --- Claude Desktop als Lerncoach -----------------------------------------------
-
-
-def coach_prompt(course: str | None = None) -> str:
-    """Auftrag für einen neuen Claude-Chat: Herkunft der Unterlagen, MCP-Werkzeuge, Coach-Verhalten."""
-    overview = f"studyhub_overview(course=\"{course}\")" if course else "studyhub_overview"
-    lines = [
-        "Sei mein Lerncoach für mein Studium an der Uni Mannheim.",
-        "",
-        "Woher meine Unterlagen kommen: Die Mac-App StudyHub lädt meine Kursdateien aus ILIAS und "
-        f"sortiert sie. Über den lokalen MCP-Server „{MCP_NAME}“ auf diesem Mac kannst du sie lesen und "
-        "Ergebnisse direkt in die App schreiben (list_courses, list_files, read_file, read_ai_results, "
-        "studyhub_overview, save_thema, save_flashcards, save_tutor_questions).",
-        "",
-        "So arbeitest du:",
-        f"- Verschaffe dir zuerst mit {overview} einen Überblick, wo ich stehe (Lernplan, „nochmal üben“, "
-        "Dateien ohne Lernthema), und schlag mir einen konkreten nächsten Schritt für heute vor.",
-        "- Inhalte nur aus meinen Unterlagen (read_file), immer mit Datei und Seitenzahl. Steht etwas nicht "
-        "drin, sag das.",
-        "- Coache statt vorzutragen: kurze Beiträge, eine Frage auf einmal, bei Fehlern erst ein Hinweis, die "
-        "Lösung erst nach dem zweiten Fehlversuch. Deutsch, Fachbegriffe aus englischen Unterlagen englisch.",
-        "- Was wir erarbeiten, darfst du nach kurzer Rückfrage speichern: Lernthemen mit save_thema, "
-        "Lernkarten mit save_flashcards, Prüfungsfragen für den Sprachtutor mit save_tutor_questions. "
-        "Es erscheint dann sofort in StudyHub.",
-        f"- Findest du den MCP-Server „{MCP_NAME}“ nicht, sag es mir sofort, statt zu raten.",
-        "",
-    ]
-    if course:
-        lines.append(f"Ich bin gerade im Kurs „{course}“.")
-    lines.append("Leg los.")
-    return "\n".join(lines)
-
-
-def claude_mcp_configured() -> bool:
-    """Steht der MCP-Server von StudyHub in der Konfiguration von Claude Desktop?"""
-    try:
-        servers = json.loads(CLAUDE_CONFIG.read_text(encoding="utf-8")).get("mcpServers") or {}
-    except (OSError, ValueError, AttributeError):
-        return False
-    return MCP_NAME in servers or any("mcp_server.py" in " ".join(map(str, (s or {}).get("args", [])))
-                                      for s in servers.values() if isinstance(s, dict))
-
-
-def claude_desktop_status(demo: bool = False) -> dict:
-    """Für Einstellungen › KI: Claude Desktop installiert? MCP-Server eingetragen, und zwar für dieses Programm
-    (nicht z. B. für einen Projektordner oder eine ältere Installation)?"""
-    try:
-        entry = (json.loads(CLAUDE_CONFIG.read_text(encoding="utf-8")).get("mcpServers") or {}).get(MCP_NAME)
-    except (OSError, ValueError, AttributeError):
-        entry = None
-    return {"installed": any(app.exists() for app in CLAUDE_APPS) or CLAUDE_CONFIG.parent.exists(),
-            "mcp": claude_mcp_configured(), "current": entry == mcp_entry(demo)}
-
-
-def mcp_entry(demo: bool = False) -> dict:
-    return {"command": str(PYTHON), "args": [str(MCP_SERVER), *(["--demo"] if demo else [])]}
-
-
-def configure_claude_mcp(demo: bool = False) -> bool:
-    """Trägt den MCP-Server dieses Programms in die Konfiguration von Claude Desktop ein (ersetzt nur den
-    eigenen Eintrag, andere Server und Einstellungen bleiben). Eine unlesbare Datei wird nie überschrieben.
-    True, wenn sich etwas geändert hat."""
-    try:
-        config = json.loads(CLAUDE_CONFIG.read_text(encoding="utf-8"))
-    except FileNotFoundError:
-        config = {}
-    except (OSError, ValueError):
-        config = None
-    if not isinstance(config, dict) or not isinstance(config.setdefault("mcpServers", {}), dict):
-        raise ShareError("Die Konfiguration von Claude Desktop ist nicht lesbar. In Claude Desktop unter "
-                         "Einstellungen › Entwickler › Konfiguration bearbeiten prüfen")
-    entry = mcp_entry(demo)
-    servers = config["mcpServers"]
-    old = [name for name in OLD_MCP_NAMES if isinstance(servers.get(name), dict)
-           and "mcp_server.py" in " ".join(map(str, servers[name].get("args", [])))]
-    if servers.get(MCP_NAME) == entry and not old:
-        return False
-    for name in old:  # sonst liefen zwei gleiche Server
-        del servers[name]
-    servers[MCP_NAME] = entry
-    CLAUDE_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-    tmp = CLAUDE_CONFIG.with_name(CLAUDE_CONFIG.name + ".tmp")
-    tmp.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    tmp.replace(CLAUDE_CONFIG)
-    return True
-
-
-def open_claude(course: str | None = None) -> None:
-    """Öffnet in Claude Desktop einen neuen Chat mit dem Lerncoach-Auftrag im Eingabefeld."""
-    url = CLAUDE_NEW_CHAT + quote(coach_prompt(course), safe="")
-    result = subprocess.run(["open", url], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise ShareError("Claude Desktop nicht gefunden: bitte von claude.com/download installieren")
-
-
-# --- Anki (AnkiConnect) -----------------------------------------------------------
 
 
 class AnkiError(ShareError):
