@@ -36,6 +36,7 @@ if (TOKEN) {
 | `DATEN.naechsteKlausur` | `null` | Klausurtermine kennt ILIAS nicht → Zeile „Klausur in X Tagen“ ausblenden |
 | `dokumente[].dateien[].seiten` | `null` | stattdessen `groesse` (Bytes) und `typ` („PDF“) |
 | `dokumente[].dateien[].pfad` | neu | für Öffnen und KI-Aufrufe |
+| `dokumente[].eigen` | neu | `true` für selbst hochgeladene Ordner (Eigene Dateien, Eigene Zusammenfassungen), sonst offiziell aus ILIAS |
 | `themen[]` | ein Thema pro Dokument mit KI-Ergebnis | kann **leer** sein → Hinweis „Noch keine Zusammenfassung“ statt `d.themen[0]` |
 | `themen[].einfacher` | evtl. `""` | nur vorhanden, wenn das strukturierte Thema erzeugt wurde |
 | `themen[].pfad`, `.strukturiert`, `.zusammenfassung` | neu | ob das Thema schon strukturiert ist (sonst aus der Markdown-Zusammenfassung abgeleitet) |
