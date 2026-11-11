@@ -264,6 +264,12 @@ def from_summary(markdown: str) -> dict:
 # --- Aufbau -------------------------------------------------------------------
 
 
+def is_own(folder: str) -> bool:
+    """Selbst hochgeladen (Eigene Dateien, Eigene Zusammenfassungen) statt offiziell aus ILIAS."""
+    top = (folder or "").split("/")[0]
+    return top in (uploads.FOLDER, uploads.SUMMARY_FOLDER)
+
+
 def _group_order(folder: str) -> tuple[int, str]:
     if not folder or VORLESUNG.search(folder):
         return 0, folder
@@ -371,7 +377,7 @@ def _module(name: str, module_id: str, files: list[dict], ai_entries: dict, stat
             i += 1
             kapitel.append({"nr": i, "titel": label,
                             "eintraege": [entry(f, f"{i}.{n}") for n, f in enumerate(group, 1)]})
-        dokumente.append({"gruppe": label, "dateien": [{
+        dokumente.append({"gruppe": label, "eigen": is_own(folder), "dateien": [{
             "name": esc(f["name"]), "pfad": f["path"], "datum": time.strftime("%Y-%m-%d", time.localtime(f["mtime"])),
             "seiten": None, "groesse": f["size"], "typ": esc(f["ext"].upper() or "Datei"),
             "zusammengefasst": bool(f["ai"]["summary"]) or bool((ai_entries.get(f["path"]) or {}).get("thema")),

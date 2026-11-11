@@ -1090,6 +1090,11 @@ body.ablegen #inhalt { outline: 2px dashed var(--gruen); outline-offset: -6px; b
 .dok-eintrag.ist-erledigt .zeile-titel { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--trenner); }
 .dok-eintrag .notiz { padding-left: 88px; }
 .dok-gruppe-kopf { align-items: center; }
+.dok-quelle { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+.dok-quelle + .dok-quelle { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--trenner); }
+.dok-quelle-kopf { align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.dok-quelle-kopf h2 { font-size: 1.35em; }
+.dok-quelle .dok-gruppe-kopf h2 { font-size: 1em; color: var(--body); }
 .dok-ausblenden { opacity: .45; transition: opacity var(--dauer) var(--ease); }
 .dok-eintrag:hover .dok-ausblenden, .dok-ausblenden:focus-visible { opacity: 1; }
 .dok-ausgeblendet { margin-top: 8px; }
