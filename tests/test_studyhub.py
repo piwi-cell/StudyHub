@@ -104,6 +104,15 @@ def test_courses_without_semester_and_slugs():
     assert module["id"] == "ubung-co" and module["fortschritt"] is None and module["info"] == "Noch keine Dateien"
 
 
+def test_documents_marked_official_or_own():
+    config = {"uni_id": "", "courses": {"MAT 100 Mathe [V] (HWS 2026)": {"name": "Mathe", "sync": True}}}
+    files = [_file("Mathe/Vorlesung/Kapitel 1.pdf"), _file("Mathe/Eigene Dateien/Mitschrift.pdf"),
+             _file("Mathe/Eigene Zusammenfassungen/Kapitel 1.md")]
+    gruppen = studyhub.overview(config, files, {}, {}, {}, now=NOW)["details"]["mathe"]["dokumente"]
+    eigen = {g["gruppe"]: g["eigen"] for g in gruppen}
+    assert eigen == {"Vorlesung": False, "Eigene Dateien": True, "Eigene Zusammenfassungen": True}
+
+
 def test_lernplan_state_validation():
     assert studyhub.set_state("a.pdf", "nochmal", "Folie 3")["status"] == "nochmal"
     assert studyhub.load_state()["a.pdf"] == {"status": "nochmal", "notiz": "Folie 3"}

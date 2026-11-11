@@ -582,7 +582,7 @@ function widgetZusammenfassung(m, d) {
 }
 
 function alleDateien(d) {
-  return d.dokumente.flatMap((g) => g.dateien.map((f) => ({ ...f, gruppe: g.gruppe })));
+  return d.dokumente.flatMap((g) => g.dateien.map((f) => ({ ...f, gruppe: g.gruppe, eigen: Boolean(g.eigen) })));
 }
 
 function widgetDokumente(m, d) {
@@ -711,8 +711,7 @@ function tabDokumenteLernplan(m, d) {
       aria-pressed="${zustand.lernplanFilter === f.id}">${f.name}</button>`)
     .join("");
 
-  const gruppen = d.dokumente
-    .map((g) => {
+  const gruppeZeigen = (g) => {
       const eintraege = g.dateien.map((f) => findeEintrag(m.id, f.id)).filter(Boolean);
       const sichtbar = zustand.lernplanFilter === "alles" ? g.dateien
         : g.dateien.filter((f) => { const e = findeEintrag(m.id, f.id); return e && passtZumFilter(e); });
@@ -730,8 +729,29 @@ function tabDokumenteLernplan(m, d) {
           </div>
           <ul class="glas liste-karte liste-zeilen">${sichtbar.map((f) => dokumentZeile(m, f)).join("")}</ul>
         </section>`;
-    })
-    .join("");
+  };
+
+  // Offizielle Unterlagen (ILIAS) und eigene Dateien getrennt, jeweils mit eigenem Stand
+  const quelle = (titel, gruppenListe) => {
+    const html = gruppenListe.map(gruppeZeigen).join("");
+    if (!html) return "";
+    const liste = gruppenListe.flatMap((g) => g.dateien);
+    const z = zaehleStatus(liste.map((f) => findeEintrag(m.id, f.id)).filter(Boolean));
+    const zusammen = liste.filter((f) => f.zusammengefasst).length;
+    const teile = [anzahl(liste.length, "Datei", "Dateien")];
+    if (z.gesamt) teile.push(`${z.erledigt} von ${z.gesamt} erledigt`);
+    teile.push(`${zusammen} zusammengefasst`);
+    return `
+      <div class="dok-quelle">
+        <div class="abschnitt-kopf dok-quelle-kopf">
+          <h2>${titel}</h2>
+          <span class="klein">${teile.join(" · ")}</span>
+        </div>
+        ${html}
+      </div>`;
+  };
+  const gruppen = quelle("Offizielle Unterlagen (ILIAS)", d.dokumente.filter((g) => !g.eigen))
+    + quelle("Selbst hochgeladen", d.dokumente.filter((g) => g.eigen));
 
   const versteckt = d.ausgeblendet || [];
   const verstecktOffen = zustand.ausgeblendetOffen.has(m.id);
@@ -769,7 +789,7 @@ function tabDokumenteLernplan(m, d) {
             <span class="status status-offen">${stand.offen} offen</span>
             <span class="status status-nochmal">${stand.nochmal} nochmal üben</span>
           </div>
-          <p class="klein">${anzahl(dateien.length, "Datei", "Dateien")} aus ILIAS · ${neu} neu · sortiert nach Vorlesung, Tutorium und Übung</p>
+          <p class="klein">${anzahl(dateien.filter((f) => !f.eigen).length, "Datei", "Dateien")} aus ILIAS · ${dateien.filter((f) => f.eigen).length} eigene · ${neu} neu · sortiert nach Vorlesung, Tutorium und Übung</p>
         </div>
       </section>
 
