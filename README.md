@@ -37,10 +37,34 @@ Wo was liegt:
 |---|---|
 | App | `~/Applications/StudyHub.app` |
 | Programm und Python | `~/Library/Application Support/StudyHub/app` |
+| Claude Code (falls vom Installer geladen) | `~/.local/bin/claude`, `~/.local/share/claude` |
 | Einstellungen, Spiegel der Kursdateien, KI-Ergebnisse, Lernstand | `~/Library/Application Support/ILIAS-Sync` |
 | Uni-Passwort, API-Keys, Telegram-Token | Schlüsselbund, Dienst „ILIAS-Sync“ |
 | Hintergrund-Jobs | `~/Library/LaunchAgents/local.ilias-sync.plist`, `local.ilias-lerner.bibliothek.plist` |
 | Protokolle | `~/Library/Logs/StudyHub.log`, `ILIAS-Sync.log` |
+
+### Installation per DMG (ohne Terminal)
+
+`bash scripts/make_dmg.sh` baut `dist/StudyHub-Installer.dmg` (nur Bordmittel: `hdiutil`, `osascript`).
+Darin liegt „StudyHub installieren.app“: Doppelklick führt `scripts/install.sh` aus, lädt also den
+aktuellen Stand von GitHub, richtet uv und Python ein, legt `~/Applications/StudyHub.app` an und öffnet
+sie. Fehlt Claude Code (`claude`, für Claude über das Abo), installiert `install.sh` es mit dem offiziellen
+Installer (`curl -fsSL https://claude.ai/install.sh | bash`, landet in `~/.local/bin/claude`, ohne
+Admin-Rechte); ein vorhandenes `claude` (Suchpfad, `~/.local/bin`, `~/.claude/local`, `/opt/homebrew/bin`,
+`/usr/local/bin`) bleibt unangetastet. Scheitert dieser Schritt, läuft die Installation weiter und meldet am
+Ende „Claude Code: nicht gefunden“. Angemeldet wird nicht im Installer, sondern in StudyHub. Fortschritt und Ergebnis zeigt die App als Dialog; bricht `install.sh` ab, nennt sie den Grund und das
+Protokoll `~/Library/Logs/StudyHub-Installation.log`. Dieselbe DMG aktualisiert auch (StudyHub vorher
+beenden), deshalb trägt sie keine Versionsnummer. Weitergabe z. B. als Anhang eines GitHub-Release.
+
+Die DMG ist nicht signiert und nicht notarisiert (kein Apple-Developer-Konto). Gatekeeper blockiert die
+heruntergeladene App deshalb beim ersten Öffnen:
+
+- **macOS 15 und neuer:** Doppelklick, Meldung schließen, dann Systemeinstellungen › Datenschutz &
+  Sicherheit › bei „StudyHub installieren“ auf „Trotzdem öffnen“ klicken und bestätigen.
+- **macOS 13 und 14:** Rechtsklick auf die App › „Öffnen“ › „Öffnen“.
+
+Derselbe Hinweis liegt als Textdatei in der DMG. Die installierte StudyHub.app ist davon nicht betroffen:
+Sie wird auf dem Mac gebaut und trägt keinen Quarantäne-Vermerk.
 
 ### Umstieg von der Terminal-Version (`ilias-sync`)
 

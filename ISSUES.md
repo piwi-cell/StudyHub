@@ -138,6 +138,7 @@ Ziel: Andere Studierende (Mac) können die App ohne Entwicklerwerkzeuge installi
 - [x] `scripts/uninstall.sh`, mit `--alles` auch Daten und Schlüsselbund (nicht, wenn die Terminal-Version sie nutzt)
 - [x] App-Symbol fertig im Repo (`assets/AppIcon.icns`), Version in Einstellungen › Über die App
 - [x] Am Mac geprüft: Installation, Update, Deinstallation, Hintergrund-Jobs nach dem Update
+- [ ] Installation per DMG ohne Terminal (`scripts/make_dmg.sh`, unsigniert, Gatekeeper-Hinweis); am Mac geprüft
 
 ### W2 · Texte und Zustände für App-Nutzer
 - [x] Meldungen ohne Verweis auf das Terminal-Programm (`core/sync.py`, Notion-Zeile nur wenn eingerichtet)
