@@ -1357,6 +1357,7 @@ function route() {
   $("#inhalt").innerHTML = `<div class="seite ${zustand.animieren ? "einblenden" : ""}">${html}</div>`;
   zustand.animieren = false;
   renderSidebar(r.modul, r.seite);
+  CHAT.aktualisieren(); // Chat-Panel folgt dem gerade angesehenen Kurs bzw. Dokument (chat.js)
 
   // Auf schmalen Bildschirmen den aktiven Tab in der Tabbar sichtbar machen
   const tabbarEl = document.querySelector(".tabbar");

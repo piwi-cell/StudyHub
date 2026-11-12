@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 import ai  # noqa: E402
 import cards  # noqa: E402
+import chat  # noqa: E402
 import claude_cli  # noqa: E402
 import cli  # noqa: E402
 import core  # noqa: E402
@@ -343,6 +344,7 @@ def rename_app_data(old: str, new: str) -> None:
     search_index.rename_folder(old, new)
     markdown_docs.rename_folder(old, new)
     course_skills.rename_folder(old, new)
+    chat.rename_folder(old, new)
     core.log(f"Kurs umbenannt: {old} → {new} (Lernstand und KI-Ergebnisse übernommen)")
 
 
@@ -823,6 +825,64 @@ def _course(name: str) -> str:
     if name not in {f["course"] for f in list_files()["files"]}:
         raise HTTPException(404, "Kurs nicht gefunden")
     return name
+
+
+# --- Chat mit Claude zum Dokument oder Kurs -----------------------------------
+
+
+class ChatRequest(BaseModel):
+    kurs: str
+    pfad: str | None = None
+    text: str = Field(min_length=1, max_length=4000)
+
+
+def _chat_target(kurs: str, pfad: str | None) -> tuple[str, Path | None, str | None]:
+    """Kurs und (falls angegeben) Dokument des Chats; das Dokument muss im Kurs liegen."""
+    course = _course(kurs)
+    if not pfad:
+        return course, None, None
+    path = mirror_path(pfad)
+    relative = core.nfc(path.relative_to(MIRROR_DIR.resolve()).as_posix())
+    if relative.split("/", 1)[0] != course:
+        raise HTTPException(404, "Datei nicht gefunden")
+    return course, path, relative
+
+
+def _chat_ready(provider: str) -> str:
+    """Leer, wenn der Chat antworten kann; sonst der Hinweis für das Panel."""
+    if provider != ai.CLAUDE_ABO:
+        return ""
+    status = claude_cli.status()
+    if not status["installed"]:
+        return "Claude Code ist nicht installiert (StudyHub-Installer erneut ausführen)."
+    return "" if status["logged_in"] else "Erst bei Claude anmelden: Einstellungen › KI › Claude (Abo)."
+
+
+@app.get("/api/chat", dependencies=[api])
+def chat_history(kurs: str, pfad: str | None = None) -> dict:
+    course, _, relative = _chat_target(kurs, pfad)
+    return {"kontext": chat.label(course, relative), "verlauf": chat.history(course, relative),
+            "anmelden": _chat_ready(ai_provider(core.load_config()))}
+
+
+@app.post("/api/chat", dependencies=[api])
+def chat_ask(body: ChatRequest) -> dict:
+    """Frage an Claude zum Dokument (pfad) oder zum ganzen Kurs; der Verlauf wird gespeichert."""
+    course, path, relative = _chat_target(body.kurs, body.pfad)
+    config = core.load_config()
+    provider = ai_provider(config)
+    files = [(p, core.nfc(p.relative_to(MIRROR_DIR).as_posix())) for p in mirror_files()] if not path else []
+    try:
+        return chat.ask(course, body.text, files, provider, provider_model(config, provider), path, relative)
+    except ai.AIError as error:
+        raise HTTPException(400, str(error)) from None
+
+
+@app.delete("/api/chat", dependencies=[api])
+def chat_clear(kurs: str, pfad: str | None = None) -> dict:
+    course, _, relative = _chat_target(kurs, pfad)
+    chat.clear(course, relative)
+    return {"ok": True}
 
 
 @app.post("/api/cards/import", dependencies=[api])
