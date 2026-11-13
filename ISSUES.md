@@ -111,6 +111,17 @@ D Integrationen (`int/`). Stretch-Ziele sind mit ⭐ markiert.
 - [x] MCP-Server, Knopf „✦ Claude“ und Abhängigkeit `mcp` entfernt
 - [ ] Live-Test mit angemeldetem Claude-Abo auf dem Mac (Zusammenfassung, Karten, alle vier Skills, gescannte PDF)
 
+### H14 · Chat mit Claude zum Dokument oder Kurs
+**Branch:** `ki/chat`
+
+- [x] Panel rechts, auf jeder Seite über die Top-Bar erreichbar; zeigt den geltenden Kontext („Kontext: Kurs · Datei“)
+- [x] Kontext folgt der Ansicht: Lernthema im Tab „Zusammenfassung“ → dieses Dokument, sonst der ganze Kurs
+- [x] Antworten nur aus dem Material, mit Quellen „Datei, S. n“; Folgefragen über den Verlauf
+- [x] Große Kurse: Claude liest die Markdown-Dateien selbst (Read, nur Markdown-Ordner des Kurses); andere Anbieter gekürzt
+- [x] Verlauf pro Kurs bzw. Dokument dauerhaft in `KI/chat.json`, löschbar
+- [x] Tests mit ersetztem Claude-Aufruf (`tests/test_chat.py`)
+- [ ] Live-Test mit angemeldetem Claude-Abo auf dem Mac (Dokument, kleiner Kurs, großer Kurs)
+
 ### H12 · Gemini als vierter KI-Anbieter
 **Verantwortlich:** B
 

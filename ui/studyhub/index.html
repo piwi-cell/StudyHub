@@ -37,6 +37,8 @@
         <button class="knopf-hell" id="sync-knopf">
           <span data-icon="sync"></span><span class="knopf-text">Synchronisieren</span>
         </button>
+        <button class="icon-knopf" id="chat-knopf" data-aktion="chat-umschalten" data-icon="chat"
+          aria-label="Chat mit Claude" title="Chat mit Claude" aria-expanded="false" aria-controls="chat"></button>
         <a class="avatar" id="avatar" href="#/einstellungen" aria-label="Profil und Einstellungen">SC</a>
       </div>
     </header>
@@ -50,6 +52,9 @@
 
       <!-- Hier landet die jeweilige Seite (Startseite oder Modulseite) -->
       <main id="inhalt" tabindex="-1"></main>
+
+      <!-- Chat mit Claude zum gerade angesehenen Dokument oder Kurs (chat.js) -->
+      <aside class="chat glas" id="chat" aria-label="Chat mit Claude" hidden></aside>
     </div>
   </div>
 
@@ -62,6 +67,7 @@
   <script src="js/einstellungen.js"></script>
   <script src="js/bibliotheken.js"></script>
   <script src="js/einrichtung.js"></script>
+  <script src="js/chat.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
